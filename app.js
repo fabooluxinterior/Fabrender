@@ -4,7 +4,7 @@
  */
 
 // ====================== CONFIGURATION: edit these two lines ======================
-const API_BASE = "https://render.mydomain.com"; // your Cloudflare Tunnel hostname (no trailing slash)
+const API_BASE = "https://render.everpic.co.in"; // your Cloudflare Tunnel hostname (no trailing slash)
 const API_KEY = "";                             // same value as API_KEY in backend/.env ("" if unused)
 // =================================================================================
 
@@ -49,7 +49,6 @@ function setFile(file) {
     return showError(`Image is larger than ${MAX_FILE_MB} MB.`);
   }
   selectedFile = file;
-  // Revoke the previous preview URL to avoid leaking memory
   if (preview.src.startsWith("blob:")) URL.revokeObjectURL(preview.src);
   preview.src = URL.createObjectURL(file);
   preview.classList.remove("hidden");
@@ -94,7 +93,6 @@ function setBusy(on) {
 }
 
 /* ------------------------------- Generating ------------------------------- */
-// Map backend status codes to friendly text
 function friendlyError(status, detail) {
   const map = {
     401: "Access denied (bad API key).",
@@ -125,7 +123,6 @@ async function generate() {
   try {
     const headers = {};
     if (API_KEY) headers["X-API-Key"] = API_KEY;
-    // Do NOT set Content-Type manually: the browser adds the multipart boundary.
     const res = await fetch(`${API_BASE}/render`, {
       method: "POST",
       body: form,
@@ -136,7 +133,6 @@ async function generate() {
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json()).detail; } catch (_) {}
-      // 502/524 may come from Cloudflare itself when the PC is unreachable
       throw new Error(friendlyError(res.status, detail));
     }
 
