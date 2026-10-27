@@ -4,7 +4,7 @@
  */
 
 // ====================== CONFIGURATION: edit these two lines ======================
-const API_BASE = "https://render.everpic.co.in"; // your Cloudflare Tunnel hostname (no trailing slash)
+const API_BASE = "https://render.everpick.co.in"; // your Cloudflare Tunnel hostname (no trailing slash)
 const API_KEY = "";                             // same value as API_KEY in backend/.env ("" if unused)
 // =================================================================================
 
