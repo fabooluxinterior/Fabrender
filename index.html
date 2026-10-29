@@ -96,9 +96,319 @@
       </div>
     </section>
   </main>
+  <p class="text-center text-xs text-slate-600 pb-6">build v3 &middot; single file</p>
 
-  <!-- ?v=3 forces browsers and GitHub Pages to load the new app.js instead of a cached copy.
-       Bump the number (v=4, v=5...) every time you change app.js. -->
-  <script src="app.js?v=3"></script>
+  <script>
+// Shows any crash directly in the header so problems are visible without opening DevTools
+window.addEventListener("error", (e) => {
+  const t = document.getElementById("statusText");
+  if (t) t.textContent = "Script error: " + e.message;
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("Unhandled promise rejection:", e.reason);
+});
+
+// ==========================================
+// Configuration
+// ==========================================
+const API_BASE = "https://render.everpick.co.in";
+
+// Must match API_KEY in your backend .env. Leave "" if auth is disabled.
+const API_KEY = "my_secure_random_key_123";
+
+const HEALTH_INTERVAL_MS = 15000;
+const HEALTH_TIMEOUT_MS = 5000;
+const UPLOAD_TIMEOUT_MS = 60 * 1000;          // sending the sketch + queuing the job
+const POLL_INTERVAL_MS = 2000;                // how often we ask "is it done yet?"
+const RENDER_MAX_WAIT_MS = 15 * 60 * 1000;    // give up after 15 minutes
+
+// ==========================================
+// Elements (IDs match index.html exactly)
+// ==========================================
+const $ = (id) => document.getElementById(id);
+
+const dropZone = $("dropzone");
+const fileInput = $("fileInput");
+const dropHint = $("dropHint");
+const preview = $("preview");
+const roomType = $("roomType");
+const designStyle = $("style");
+const extraDetails = $("extra");
+const generateBtn = $("generateBtn");
+const btnLabel = $("btnLabel");
+const spinner = $("spinner");
+const errorBox = $("errorBox");
+const statusDot = $("statusDot");
+const statusText = $("statusText");
+const placeholder = $("placeholder");
+const loadingBox = $("loadingBox");
+const loadingTitle = loadingBox ? loadingBox.querySelector("p") : null;
+const elapsedEl = $("elapsed");
+const resultImg = $("resultImg");
+const resultActions = $("resultActions");
+const resultMeta = $("resultMeta");
+const downloadLink = $("downloadLink");
+
+// ==========================================
+// State
+// ==========================================
+let selectedFile = null;
+let serverOnline = false;
+let isRendering = false;
+let previewUrl = null;
+let elapsedTimer = null;
+
+// ==========================================
+// Helpers
+// ==========================================
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const authHeaders = () => (API_KEY ? { "X-API-Key": API_KEY } : {});
+
+function setStatus(color, text) {
+  if (statusDot) statusDot.style.backgroundColor = color;
+  if (statusText) statusText.textContent = text;
+}
+
+function setLoadingText(text) {
+  if (loadingTitle) loadingTitle.textContent = text;
+}
+
+function updateButton() {
+  if (!generateBtn) return;
+  generateBtn.disabled = !(serverOnline && selectedFile && !isRendering);
+}
+
+function showError(msg) {
+  if (errorBox) {
+    errorBox.textContent = msg;
+    errorBox.classList.remove("hidden");
+  } else {
+    alert(msg);
+  }
+}
+
+function hideError() {
+  if (errorBox) errorBox.classList.add("hidden");
+}
+
+function setRendering(on) {
+  isRendering = on;
+  if (spinner) spinner.classList.toggle("hidden", !on);
+  if (btnLabel) btnLabel.textContent = on ? "Rendering on RTX 4060 Ti…" : "Generate render";
+  if (loadingBox) loadingBox.classList.toggle("hidden", !on);
+  if (on) {
+    setLoadingText("Sending your sketch…");
+    if (placeholder) placeholder.classList.add("hidden");
+    if (resultImg) resultImg.classList.add("hidden");
+    if (resultActions) resultActions.classList.add("hidden");
+    const start = Date.now();
+    if (elapsedEl) elapsedEl.textContent = "0";
+    elapsedTimer = setInterval(() => {
+      if (elapsedEl) elapsedEl.textContent = Math.floor((Date.now() - start) / 1000);
+    }, 1000);
+  } else {
+    clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+  updateButton();
+}
+
+// Accepts a data URL, http(s) URL, relative path, or raw base64
+function normalizeImageSrc(value) {
+  if (!value || typeof value !== "string") return null;
+  if (value.startsWith("data:") || value.startsWith("http")) return value;
+  if (value.startsWith("/")) return API_BASE + value;
+  return `data:image/png;base64,${value}`;
+}
+
+async function readError(response) {
+  let detail = `Request failed (HTTP ${response.status})`;
+  try {
+    const data = await response.json();
+    if (data.detail) detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+  } catch (_) {}
+  return detail;
+}
+
+// ==========================================
+// Status check (every 15 s, 5 s timeout)
+// ==========================================
+async function checkStatus() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), HEALTH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE}/health`, { signal: ctrl.signal, cache: "no-store" });
+    const data = await res.json();
+
+    if (data.status === "ok") {
+      serverOnline = true;
+      if (data.busy) {
+        setStatus("#f59e0b", `Rendering… (${data.pending ?? 0} in queue)`);
+      } else {
+        setStatus("#10b981", "Render PC ready");
+      }
+    } else if (data.status === "comfyui_down") {
+      serverOnline = false;
+      setStatus("#ef4444", "ComfyUI is not running");
+    } else {
+      serverOnline = false;
+      setStatus("#f59e0b", "Unexpected server status");
+    }
+  } catch (err) {
+    serverOnline = false;
+    setStatus("#ef4444", "Render PC offline");
+  } finally {
+    clearTimeout(timer);
+    updateButton();
+  }
+}
+
+// ==========================================
+// File selection
+// ==========================================
+function handleFile(file) {
+  if (!file) return;
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+    showError("Please choose a PNG, JPG or WEBP image.");
+    return;
+  }
+  hideError();
+  selectedFile = file;
+
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(file);
+  preview.src = previewUrl;
+  preview.classList.remove("hidden");
+  dropHint.classList.add("hidden");
+  updateButton();
+}
+
+dropZone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add("border-amber-400");
+});
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("border-amber-400");
+});
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("border-amber-400");
+  handleFile(e.dataTransfer.files[0]);
+});
+
+// ==========================================
+// Render job polling
+// ==========================================
+async function pollJob(jobId) {
+  const deadline = Date.now() + RENDER_MAX_WAIT_MS;
+  let failures = 0;
+
+  while (Date.now() < deadline) {
+    await sleep(POLL_INTERVAL_MS);
+
+    let job;
+    try {
+      const r = await fetch(`${API_BASE}/render/${jobId}`, { headers: authHeaders(), cache: "no-store" });
+      if (!r.ok) {
+        const err = new Error(await readError(r));
+        err.fatal = r.status >= 400 && r.status < 500; // 401 / 404: retrying will not help
+        throw err;
+      }
+      job = await r.json();
+      failures = 0;
+    } catch (e) {
+      failures += 1;
+      if (e.fatal || failures >= 5) {
+        throw new Error(e.fatal ? e.message : "Lost connection to the render PC. " + e.message);
+      }
+      continue; // brief network hiccup, try again
+    }
+
+    if (job.status === "done") return job;
+    if (job.status === "error") throw new Error(job.error || "Render failed.");
+
+    if (job.status === "queued") {
+      setLoadingText("Waiting for the GPU…");
+    } else if (job.progress > 0) {
+      setLoadingText(`Rendering… ${job.progress}%`);
+    } else {
+      setLoadingText("Loading models…");
+    }
+  }
+  throw new Error("The render took too long. Check that the render PC is running.");
+}
+
+// ==========================================
+// Generate render
+// ==========================================
+async function generateRender() {
+  if (!selectedFile) {
+    showError("Please upload a sketch or clay render first.");
+    return;
+  }
+
+  hideError();
+  setRendering(true);
+  const startedAt = Date.now();
+
+  const formData = new FormData();
+  formData.append("file", selectedFile);
+  formData.append("room_type", roomType.value);
+  formData.append("style", designStyle.value);
+  formData.append("extra_prompt", extraDetails.value.trim());
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${API_BASE}/render`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+
+    if (!response.ok) throw new Error(await readError(response));
+    const first = await response.json();
+
+    // New backend returns a job id; an older one returns the image directly.
+    const result = first.image ? first : await pollJob(first.job_id);
+
+    const src = normalizeImageSrc(result.image);
+    if (!src) throw new Error("Server returned no image.");
+
+    resultImg.src = src;
+    resultImg.classList.remove("hidden");
+    downloadLink.href = src;
+    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s`;
+    resultActions.classList.remove("hidden");
+  } catch (err) {
+    if (placeholder) placeholder.classList.remove("hidden");
+    showError(
+      err.name === "AbortError"
+        ? "Could not reach the render PC (upload timed out)."
+        : err.message === "Failed to fetch"
+        ? "Could not reach the render PC. Check that the backend and the tunnel are running."
+        : err.message
+    );
+  } finally {
+    clearTimeout(timer);
+    setRendering(false);
+  }
+}
+
+generateBtn.addEventListener("click", generateRender);
+
+// ==========================================
+// Start
+// ==========================================
+checkStatus();
+setInterval(checkStatus, HEALTH_INTERVAL_MS);
+
+  </script>
 </body>
 </html>
