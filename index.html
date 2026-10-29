@@ -66,6 +66,14 @@
                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-400" />
       </div>
 
+      <div>
+        <label for="quality" class="block text-sm font-medium text-slate-300 mb-2">4. Output quality</label>
+        <select id="quality" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-400">
+          <option value="standard" selected>Standard: fast, about 1 megapixel</option>
+          <option value="4k">4K: two-pass detail refinement, takes 3 to 8 minutes</option>
+        </select>
+      </div>
+
       <button id="generateBtn" disabled
               class="w-full flex items-center justify-center gap-3 bg-amber-400 text-slate-900 font-semibold rounded-lg py-3 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed">
         <svg id="spinner" class="hidden animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
@@ -85,7 +93,7 @@
         <p id="placeholder" class="text-slate-500">Your render will appear here.</p>
         <div id="loadingBox" class="hidden text-center text-slate-400">
           <p class="text-lg">Rendering…</p>
-          <p class="text-sm mt-1">Usually 30–90 seconds. The first render after a restart can take a few minutes while the models load. <span id="elapsed">0</span>s</p>
+          <p class="text-sm mt-1"><span id="loadingHint">Usually 30–90 seconds.</span> <span id="elapsed">0</span>s</p>
         </div>
         <img id="resultImg" class="hidden max-h-[640px] rounded-lg object-contain" alt="Rendered result" />
       </div>
@@ -94,9 +102,10 @@
         <a id="downloadLink" download="render.png"
            class="px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-400 hover:text-amber-300 transition">Download PNG</a>
       </div>
+      <div id="noticeBox" class="hidden mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 px-4 py-3 text-sm"></div>
     </section>
   </main>
-  <p class="text-center text-xs text-slate-600 pb-6">build v3 &middot; single file</p>
+  <p class="text-center text-xs text-slate-600 pb-6">build v4 &middot; 4K pipeline &middot; single file</p>
 
   <script>
 // Shows any crash directly in the header so problems are visible without opening DevTools
@@ -148,6 +157,9 @@ const resultImg = $("resultImg");
 const resultActions = $("resultActions");
 const resultMeta = $("resultMeta");
 const downloadLink = $("downloadLink");
+const qualitySel = $("quality");
+const noticeBox = $("noticeBox");
+const loadingHint = $("loadingHint");
 
 // ==========================================
 // State
@@ -157,12 +169,14 @@ let serverOnline = false;
 let isRendering = false;
 let previewUrl = null;
 let elapsedTimer = null;
+let lastJobId = null;      // set when the full-resolution PNG can be downloaded from the backend
 
 // ==========================================
 // Helpers
 // ==========================================
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const authHeaders = () => (API_KEY ? { "X-API-Key": API_KEY } : {});
+const getQuality = () => (qualitySel ? qualitySel.value : "standard");
 
 function setStatus(color, text) {
   if (statusDot) statusDot.style.backgroundColor = color;
@@ -191,6 +205,17 @@ function hideError() {
   if (errorBox) errorBox.classList.add("hidden");
 }
 
+function showNotice(msg) {
+  if (noticeBox) {
+    noticeBox.textContent = msg;
+    noticeBox.classList.remove("hidden");
+  }
+}
+
+function hideNotice() {
+  if (noticeBox) noticeBox.classList.add("hidden");
+}
+
 function setRendering(on) {
   isRendering = on;
   if (spinner) spinner.classList.toggle("hidden", !on);
@@ -198,6 +223,11 @@ function setRendering(on) {
   if (loadingBox) loadingBox.classList.toggle("hidden", !on);
   if (on) {
     setLoadingText("Sending your sketch…");
+    if (loadingHint) {
+      loadingHint.textContent = getQuality() === "4k"
+        ? "4K renders usually take 3–8 minutes."
+        : "Usually 30–90 seconds. The first render after a restart takes longer while the models load.";
+    }
     if (placeholder) placeholder.classList.add("hidden");
     if (resultImg) resultImg.classList.add("hidden");
     if (resultActions) resultActions.classList.add("hidden");
@@ -332,6 +362,8 @@ async function pollJob(jobId) {
 
     if (job.status === "queued") {
       setLoadingText("Waiting for the GPU…");
+    } else if (job.label) {
+      setLoadingText(job.label); // e.g. "Pass 2 of 2 · refining details to 4K"
     } else if (job.progress > 0) {
       setLoadingText(`Rendering… ${job.progress}%`);
     } else {
@@ -351,6 +383,8 @@ async function generateRender() {
   }
 
   hideError();
+  hideNotice();
+  lastJobId = null;
   setRendering(true);
   const startedAt = Date.now();
 
@@ -359,6 +393,7 @@ async function generateRender() {
   formData.append("room_type", roomType.value);
   formData.append("style", designStyle.value);
   formData.append("extra_prompt", extraDetails.value.trim());
+  formData.append("quality", getQuality());
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT_MS);
@@ -383,9 +418,18 @@ async function generateRender() {
 
     resultImg.src = src;
     resultImg.classList.remove("hidden");
-    downloadLink.href = src;
-    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s`;
+    const size = result.width && result.height ? ` · ${result.width}×${result.height}px` : "";
+    if (first.job_id && result.can_download) {
+      // full-resolution PNG is fetched from the backend (the page only shows a preview)
+      lastJobId = first.job_id;
+      downloadLink.href = "#";
+      downloadLink.download = result.width > 2000 ? "render_4k.png" : "render.png";
+    } else {
+      downloadLink.href = src;
+    }
+    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s${size}`;
     resultActions.classList.remove("hidden");
+    if (result.notice) showNotice(result.notice);
   } catch (err) {
     if (placeholder) placeholder.classList.remove("hidden");
     showError(
@@ -400,6 +444,30 @@ async function generateRender() {
     setRendering(false);
   }
 }
+
+// Download the full-resolution PNG (needs the API key header, so it goes through fetch)
+downloadLink.addEventListener("click", async (e) => {
+  if (!lastJobId) return; // fallback: plain link to the displayed image
+  e.preventDefault();
+  const label = downloadLink.textContent;
+  downloadLink.textContent = "Preparing…";
+  try {
+    const r = await fetch(`${API_BASE}/render/${lastJobId}/download`, { headers: authHeaders() });
+    if (!r.ok) throw new Error(await readError(r));
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = downloadLink.download || "render.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (err) {
+    showError("Download failed: " + err.message);
+  } finally {
+    downloadLink.textContent = label;
+  }
+});
 
 generateBtn.addEventListener("click", generateRender);
 
