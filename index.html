@@ -85,7 +85,7 @@
         <p id="placeholder" class="text-slate-500">Your render will appear here.</p>
         <div id="loadingBox" class="hidden text-center text-slate-400">
           <p class="text-lg">Rendering…</p>
-          <p class="text-sm mt-1">Usually 20–60 seconds. <span id="elapsed">0</span>s</p>
+          <p class="text-sm mt-1">Usually 30–90 seconds. The first render after a restart can take a few minutes while the models load. <span id="elapsed">0</span>s</p>
         </div>
         <img id="resultImg" class="hidden max-h-[640px] rounded-lg object-contain" alt="Rendered result" />
       </div>
@@ -97,6 +97,8 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <!-- ?v=3 forces browsers and GitHub Pages to load the new app.js instead of a cached copy.
+       Bump the number (v=4, v=5...) every time you change app.js. -->
+  <script src="app.js?v=3"></script>
 </body>
 </html>
