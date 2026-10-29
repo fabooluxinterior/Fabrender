@@ -3,146 +3,248 @@
 // ==========================================
 const API_BASE = "https://render.everpick.co.in";
 
-// 👉 Paste your backend API key here. If you disabled it in the backend, leave it as ""
-const API_KEY = "my_secure_random_key_123"; 
+// Must match API_KEY in your backend .env. Leave "" if auth is disabled.
+const API_KEY = "my_secure_random_key_123";
+
+const HEALTH_INTERVAL_MS = 15000;
+const HEALTH_TIMEOUT_MS = 5000;
+const RENDER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 // ==========================================
-// Elements
+// Elements (IDs match index.html exactly)
 // ==========================================
-const dropZone = document.getElementById("drop-zone");
-const fileInput = document.getElementById("file-input");
-const roomType = document.getElementById("room-type");
-const designStyle = document.getElementById("design-style");
-const extraDetails = document.getElementById("extra-details");
-const generateBtn = document.getElementById("generate-btn");
-const resultImage = document.getElementById("result-image");
-const errorBox = document.getElementById("error-box");
-const statusDot = document.getElementById("status-dot");
-const statusText = document.getElementById("status-text");
+const $ = (id) => document.getElementById(id);
 
+const dropZone = $("dropzone");
+const fileInput = $("fileInput");
+const dropHint = $("dropHint");
+const preview = $("preview");
+const roomType = $("roomType");
+const designStyle = $("style");
+const extraDetails = $("extra");
+const generateBtn = $("generateBtn");
+const btnLabel = $("btnLabel");
+const spinner = $("spinner");
+const errorBox = $("errorBox");
+const statusDot = $("statusDot");
+const statusText = $("statusText");
+const placeholder = $("placeholder");
+const loadingBox = $("loadingBox");
+const elapsedEl = $("elapsed");
+const resultImg = $("resultImg");
+const resultActions = $("resultActions");
+const resultMeta = $("resultMeta");
+const downloadLink = $("downloadLink");
+
+// ==========================================
+// State
+// ==========================================
 let selectedFile = null;
+let serverOnline = false;
+let isRendering = false;
+let previewUrl = null;
+let elapsedTimer = null;
 
 // ==========================================
-// Status Check (Runs every 15 seconds)
+// Helpers
 // ==========================================
-async function checkStatus() {
-    try {
-        const res = await fetch(`${API_BASE}/health`);
-        const data = await res.json();
-        
-        if (data.status === "ok") {
-            statusDot.style.backgroundColor = "#10b981"; // Green
-            statusText.textContent = "Render PC ready";
-            generateBtn.disabled = false;
-        } else if (data.status === "comfyui_down") {
-            statusDot.style.backgroundColor = "#ef4444"; // Red
-            statusText.textContent = "ComfyUI is not running";
-        }
-    } catch (err) {
-        statusDot.style.backgroundColor = "#ef4444"; // Red
-        statusText.textContent = "Render PC offline";
-    }
+function setStatus(color, text) {
+  if (statusDot) statusDot.style.backgroundColor = color;
+  if (statusText) statusText.textContent = text;
 }
 
-// ==========================================
-// Generate Render
-// ==========================================
-async function generateRender() {
-    if (!selectedFile) {
-        showError("Please upload a sketch or clay render first.");
-        return;
-    }
-
-    // Reset UI for loading
-    hideError();
-    generateBtn.disabled = true;
-    generateBtn.textContent = "Rendering on RTX 4060 Ti...";
-    resultImage.style.opacity = "0.5";
-
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-    formData.append("room_type", roomType.value);
-    formData.append("style", designStyle.value);
-    formData.append("extra_prompt", extraDetails.value);
-
-    try {
-        const response = await fetch(`${API_BASE}/render`, {
-            method: "POST",
-            headers: {
-                "X-API-Key": API_KEY // This unlocks your FastAPI backend!
-            },
-            body: formData,
-        });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.detail || "Failed to generate render");
-        }
-
-        const data = await response.json();
-        
-        // Display the finished render
-        resultImage.src = data.image;
-        resultImage.style.opacity = "1";
-        
-    } catch (err) {
-        showError(err.message);
-        resultImage.style.opacity = "1";
-    } finally {
-        generateBtn.disabled = false;
-        generateBtn.textContent = "Generate render";
-    }
+function updateButton() {
+  if (!generateBtn) return;
+  generateBtn.disabled = !(serverOnline && selectedFile && !isRendering);
 }
 
-// ==========================================
-// Event Listeners & UI Helpers
-// ==========================================
 function showError(msg) {
-    if (errorBox) {
-        errorBox.textContent = msg;
-        errorBox.style.display = "block";
-    } else {
-        alert(msg);
-    }
+  if (errorBox) {
+    errorBox.textContent = msg;
+    errorBox.classList.remove("hidden");
+  } else {
+    alert(msg);
+  }
 }
 
 function hideError() {
-    if (errorBox) errorBox.style.display = "none";
+  if (errorBox) errorBox.classList.add("hidden");
 }
 
-// Drag & Drop handlers
-if (dropZone) {
-    dropZone.addEventListener("click", () => fileInput.click());
-    dropZone.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = "#10b981";
+function setRendering(on) {
+  isRendering = on;
+  if (spinner) spinner.classList.toggle("hidden", !on);
+  if (btnLabel) btnLabel.textContent = on ? "Rendering on RTX 4060 Ti…" : "Generate render";
+  if (loadingBox) loadingBox.classList.toggle("hidden", !on);
+  if (on) {
+    if (placeholder) placeholder.classList.add("hidden");
+    if (resultImg) resultImg.classList.add("hidden");
+    if (resultActions) resultActions.classList.add("hidden");
+    const start = Date.now();
+    if (elapsedEl) elapsedEl.textContent = "0";
+    elapsedTimer = setInterval(() => {
+      if (elapsedEl) elapsedEl.textContent = Math.floor((Date.now() - start) / 1000);
+    }, 1000);
+  } else {
+    clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+  updateButton();
+}
+
+// Accepts a data URL, http(s) URL, relative path, or raw base64
+function normalizeImageSrc(value) {
+  if (!value || typeof value !== "string") return null;
+  if (value.startsWith("data:") || value.startsWith("http")) return value;
+  if (value.startsWith("/")) return API_BASE + value;
+  return `data:image/png;base64,${value}`;
+}
+
+// ==========================================
+// Status check (every 15 s, 5 s timeout)
+// ==========================================
+async function checkStatus() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), HEALTH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE}/health`, {
+      signal: ctrl.signal,
+      cache: "no-store",
     });
-    dropZone.addEventListener("dragleave", () => {
-        dropZone.style.borderColor = "#374151";
+    const data = await res.json();
+
+    if (data.status === "ok") {
+      serverOnline = true;
+      if (data.busy) {
+        setStatus("#f59e0b", `Rendering… (${data.pending ?? 0} queued)`);
+      } else {
+        setStatus("#10b981", "Render PC ready");
+      }
+    } else if (data.status === "comfyui_down") {
+      serverOnline = false;
+      setStatus("#ef4444", "ComfyUI is not running");
+    } else {
+      serverOnline = false;
+      setStatus("#f59e0b", "Unexpected server status");
+    }
+  } catch (err) {
+    serverOnline = false;
+    setStatus("#ef4444", "Render PC offline");
+  } finally {
+    clearTimeout(timer);
+    updateButton();
+  }
+}
+
+// ==========================================
+// File selection
+// ==========================================
+function handleFile(file) {
+  if (!file) return;
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+    showError("Please choose a PNG, JPG or WEBP image.");
+    return;
+  }
+  hideError();
+  selectedFile = file;
+
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(file);
+  preview.src = previewUrl;
+  preview.classList.remove("hidden");
+  dropHint.classList.add("hidden");
+  updateButton();
+}
+
+dropZone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add("border-amber-400");
+});
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("border-amber-400");
+});
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("border-amber-400");
+  handleFile(e.dataTransfer.files[0]);
+});
+
+// ==========================================
+// Generate render
+// ==========================================
+async function generateRender() {
+  if (!selectedFile) {
+    showError("Please upload a sketch or clay render first.");
+    return;
+  }
+
+  hideError();
+  setRendering(true);
+  const startedAt = Date.now();
+
+  const formData = new FormData();
+  formData.append("file", selectedFile);
+  formData.append("room_type", roomType.value);
+  formData.append("style", designStyle.value);
+  formData.append("extra_prompt", extraDetails.value.trim());
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), RENDER_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${API_BASE}/render`, {
+      method: "POST",
+      headers: API_KEY ? { "X-API-Key": API_KEY } : {},
+      body: formData,
+      signal: ctrl.signal,
     });
-    dropZone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = "#374151";
-        if (e.dataTransfer.files.length) {
-            selectedFile = e.dataTransfer.files[0];
-            dropZone.innerHTML = `<p style="color: #10b981;">Selected: ${selectedFile.name}</p>`;
+
+    if (!response.ok) {
+      let detail = `Render failed (HTTP ${response.status})`;
+      try {
+        const errData = await response.json();
+        if (errData.detail) {
+          detail = typeof errData.detail === "string" ? errData.detail : JSON.stringify(errData.detail);
         }
-    });
+      } catch (_) {}
+      throw new Error(detail);
+    }
+
+    let src;
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.startsWith("image/")) {
+      src = URL.createObjectURL(await response.blob());
+    } else {
+      const data = await response.json();
+      src = normalizeImageSrc(data.image || data.image_url || data.url);
+    }
+    if (!src) throw new Error("Server returned no image.");
+
+    resultImg.src = src;
+    resultImg.classList.remove("hidden");
+    downloadLink.href = src;
+    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s`;
+    resultActions.classList.remove("hidden");
+  } catch (err) {
+    if (placeholder) placeholder.classList.remove("hidden");
+    showError(
+      err.name === "AbortError"
+        ? "Render timed out. Check that the render PC is running."
+        : err.message
+    );
+  } finally {
+    clearTimeout(timer);
+    setRendering(false);
+  }
 }
 
-if (fileInput) {
-    fileInput.addEventListener("change", (e) => {
-        if (e.target.files.length) {
-            selectedFile = e.target.files[0];
-            dropZone.innerHTML = `<p style="color: #10b981;">Selected: ${selectedFile.name}</p>`;
-        }
-    });
-}
+generateBtn.addEventListener("click", generateRender);
 
-if (generateBtn) {
-    generateBtn.addEventListener("click", generateRender);
-}
-
-// Start checking the server status immediately
+// ==========================================
+// Start
+// ==========================================
 checkStatus();
-setInterval(checkStatus, 15000);
+setInterval(checkStatus, HEALTH_INTERVAL_MS);
