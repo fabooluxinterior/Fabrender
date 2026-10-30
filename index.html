@@ -34,35 +34,22 @@
         </div>
       </div>
 
-      <div class="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label for="roomType" class="block text-sm font-medium text-slate-300 mb-2">2. Room type</label>
-          <select id="roomType" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-400">
-            <option value="living_room">Living Room</option>
-            <option value="bedroom">Bedroom</option>
-            <option value="kitchen">Kitchen</option>
-            <option value="dining_room">Dining Room</option>
-            <option value="bathroom">Bathroom</option>
-            <option value="office">Home Office</option>
-            <option value="exterior">Exterior</option>
-          </select>
-        </div>
-        <div>
-          <label for="style" class="block text-sm font-medium text-slate-300 mb-2">3. Design style</label>
-          <select id="style" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-400">
-            <option value="nordic">Nordic</option>
-            <option value="industrial">Industrial</option>
-            <option value="luxury">Luxury</option>
-            <option value="modern" selected>Modern</option>
-            <option value="japandi">Japandi</option>
-            <option value="classic">Classic</option>
-          </select>
-        </div>
+      <div>
+        <label for="style" class="block text-sm font-medium text-slate-300 mb-2">2. Design style</label>
+        <select id="style" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-400">
+          <option value="nordic">Nordic</option>
+          <option value="industrial">Industrial</option>
+          <option value="luxury">Luxury</option>
+          <option value="modern" selected>Modern</option>
+          <option value="japandi">Japandi</option>
+          <option value="classic">Classic</option>
+        </select>
+        <p class="text-xs text-slate-500 mt-2">The room type and its lighting are detected automatically from your image.</p>
       </div>
 
       <div>
-        <label for="extra" class="block text-sm font-medium text-slate-300 mb-2">Extra details <span class="text-slate-500">(optional)</span></label>
-        <input id="extra" maxlength="300" placeholder="e.g. green velvet sofa, large plants, evening light"
+        <label for="extra" class="block text-sm font-medium text-slate-300 mb-2">3. Extra details <span class="text-slate-500">(optional)</span></label>
+        <input id="extra" maxlength="300" placeholder="e.g. green velvet sofa, large plants, TV switched on"
                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-400" />
       </div>
 
@@ -105,7 +92,7 @@
       <div id="noticeBox" class="hidden mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 px-4 py-3 text-sm"></div>
     </section>
   </main>
-  <p class="text-center text-xs text-slate-600 pb-6">build v4 &middot; 4K pipeline &middot; single file</p>
+  <p class="text-center text-xs text-slate-600 pb-6">build v5 &middot; auto room detection &middot; single file</p>
 
   <script>
 // Shows any crash directly in the header so problems are visible without opening DevTools
@@ -140,7 +127,6 @@ const dropZone = $("dropzone");
 const fileInput = $("fileInput");
 const dropHint = $("dropHint");
 const preview = $("preview");
-const roomType = $("roomType");
 const designStyle = $("style");
 const extraDetails = $("extra");
 const generateBtn = $("generateBtn");
@@ -390,7 +376,6 @@ async function generateRender() {
 
   const formData = new FormData();
   formData.append("file", selectedFile);
-  formData.append("room_type", roomType.value);
   formData.append("style", designStyle.value);
   formData.append("extra_prompt", extraDetails.value.trim());
   formData.append("quality", getQuality());
@@ -427,7 +412,8 @@ async function generateRender() {
     } else {
       downloadLink.href = src;
     }
-    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s${size}`;
+    const room = result.room_label && result.room ? ` · ${result.room_label} (auto-detected)` : "";
+    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s${size}${room}`;
     resultActions.classList.remove("hidden");
     if (result.notice) showNotice(result.notice);
   } catch (err) {
