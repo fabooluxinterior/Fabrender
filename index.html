@@ -92,7 +92,7 @@
       <div id="noticeBox" class="hidden mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 px-4 py-3 text-sm"></div>
     </section>
   </main>
-  <p class="text-center text-xs text-slate-600 pb-6">build v5 &middot; auto room detection &middot; single file</p>
+  <p class="text-center text-xs text-slate-600 pb-6">build v6 &middot; auto room + sun detection &middot; single file</p>
 
   <script>
 // Shows any crash directly in the header so problems are visible without opening DevTools
@@ -413,7 +413,7 @@ async function generateRender() {
       downloadLink.href = src;
     }
     const room = result.room_label && result.room ? ` · ${result.room_label} (auto-detected)` : "";
-    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s${size}${room}`;
+    resultMeta.textContent = `Done in ${Math.round((Date.now() - startedAt) / 1000)}s${size}${room}${result.light ? " · " + result.light : ""}`;
     resultActions.classList.remove("hidden");
     if (result.notice) showNotice(result.notice);
   } catch (err) {
