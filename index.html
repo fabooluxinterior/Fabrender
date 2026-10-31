@@ -120,9 +120,10 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:12p
 .bubble .txt{white-space:pre-wrap;overflow-wrap:anywhere}
 .thumb{position:relative;display:inline-block;max-width:260px;border-radius:12px;overflow:hidden;line-height:0}
 .thumb img{display:block;max-width:100%;max-height:220px;object-fit:cover}
-.thumb .ring{
-  position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
-  border:2.5px solid #ff4d4d;box-shadow:0 0 0 2px rgba(0,0,0,.35),0 0 14px rgba(255,77,77,.8);
+.thumb .dot{
+  position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;display:grid;place-items:center;
+  background:#ff4d4d;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);
+  font-size:9px;font-weight:700;line-height:1;color:#fff;
 }
 .tag{align-self:flex-start;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);font-weight:600}
 .status-line{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
@@ -212,31 +213,47 @@ select.mini option{background:#1a1411}
 #lb.open .bar{opacity:1;transform:none}
 #lb .bar .hint{flex:1;color:var(--muted);font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #lb .bar .hint b{color:var(--accent);font-weight:600}
-#lb .stage{position:absolute;inset:64px 24px 24px;display:grid;place-items:center;z-index:2}
+#lb .stage{position:absolute;inset:64px 372px 24px 24px;display:grid;place-items:center;z-index:2}
 #lb .wrap{position:relative;line-height:0;max-width:100%;max-height:100%;opacity:0;transform:scale(.93);transition:opacity .3s var(--ease),transform .38s var(--ease);cursor:crosshair}
 #lb.open .wrap{opacity:1;transform:scale(1)}
-#lb .wrap img{display:block;max-width:calc(100vw - 48px);max-height:calc(100dvh - 88px);border-radius:12px;box-shadow:0 30px 90px rgba(0,0,0,.7);user-select:none;-webkit-user-drag:none}
+#lb .wrap img{display:block;max-width:calc(100vw - 396px);max-height:calc(100dvh - 88px);border-radius:12px;box-shadow:0 30px 90px rgba(0,0,0,.7);user-select:none;-webkit-user-drag:none}
 .pin{
-  position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;z-index:4;
-  border:3px solid #fff;background:rgba(255,77,77,.9);box-shadow:0 0 0 3px rgba(255,77,77,.4),0 4px 14px rgba(0,0,0,.6);
-  animation:pop .35s var(--ease) both;cursor:pointer;line-height:1;
+  position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;z-index:4;display:grid;place-items:center;
+  border:2.5px solid #fff;background:#ff4d4d;box-shadow:0 3px 10px rgba(0,0,0,.65);
+  font-size:11.5px;font-weight:700;line-height:1;color:#fff;
+  animation:pop .3s var(--ease) both;cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s;
 }
-.pin::after{content:"";position:absolute;inset:-9px;border-radius:50%;border:2px solid rgba(255,77,77,.7);animation:pulse 1.8s ease-out infinite}
+.pin:hover,.pin.on{transform:scale(1.2);box-shadow:0 0 0 4px rgba(255,77,77,.38),0 3px 10px rgba(0,0,0,.65)}
 @keyframes pop{from{transform:scale(.2);opacity:0}}
-@keyframes pulse{from{transform:scale(.7);opacity:1}to{transform:scale(1.5);opacity:0}}
-.pop{
-  position:absolute;z-index:5;width:300px;padding:14px;border-radius:16px;line-height:1.45;cursor:default;
-  background:rgba(24,17,14,.88);border:1px solid var(--line-2);box-shadow:0 22px 60px rgba(0,0,0,.65);
-  -webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);animation:rise .25s var(--ease) both;
+#lbPanel{
+  position:absolute;z-index:3;right:20px;top:72px;bottom:20px;width:332px;display:flex;flex-direction:column;gap:10px;
+  padding:14px;border-radius:18px;background:rgba(24,17,14,.86);border:1px solid var(--line-2);
+  -webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);
+  opacity:0;transform:translateX(10px);transition:opacity .3s var(--ease),transform .3s var(--ease);
 }
-.pop h4{margin:0 0 2px;font-size:14.5px}
-.pop small{color:var(--muted);display:block;margin-bottom:9px}
-.pop textarea{width:100%;min-height:78px;resize:none;border-radius:11px;padding:10px 11px;background:rgba(255,255,255,.06);border:1px solid var(--line);outline:0;font-size:14px}
-.pop textarea:focus{border-color:rgba(227,185,138,.7)}
-.pop .row{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
-.pop .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.pop .quick button{padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted);transition:.18s}
-.pop .quick button:hover{color:var(--text);border-color:var(--line-2);background:var(--glass)}
+#lb.open #lbPanel{opacity:1;transform:none}
+#lbPanel .ph{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#lbPanel .ph b{font-size:14.5px}
+#lbPanel .ph .btn{padding:5px 10px;font-size:12.5px}
+#lbList{list-style:none;margin:0;padding:0 2px 0 0;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
+#lbList::-webkit-scrollbar{width:6px}
+#lbList::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:6px}
+#lbList .empty{color:var(--muted);font-size:13.5px;padding:6px 2px}
+#lbList .row{
+  display:grid;grid-template-columns:24px 1fr 26px;gap:6px 8px;align-items:start;padding:9px;border-radius:13px;
+  background:var(--glass);border:1px solid var(--line);transition:border-color .18s,background .18s;
+}
+#lbList .row.on{border-color:rgba(227,185,138,.6);background:var(--glass-2)}
+#lbList .num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#ff4d4d;border:2px solid #fff;font-size:11.5px;font-weight:700;line-height:1}
+#lbList textarea{width:100%;min-height:58px;resize:none;border-radius:10px;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid var(--line);outline:0;font-size:13.5px}
+#lbList textarea:focus{border-color:rgba(227,185,138,.7)}
+#lbList .x{width:26px;height:26px;border-radius:8px;color:var(--muted);font-size:17px}
+#lbList .x:hover{color:var(--bad);background:rgba(255,93,93,.14)}
+#lbList select.mini{grid-column:2;justify-self:start;font-size:12px;padding:3px 10px}
+#lbPanel .quick{display:flex;flex-wrap:wrap;gap:6px}
+#lbPanel .quick button{padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted);transition:.18s}
+#lbPanel .quick button:hover{color:var(--text);border-color:var(--line-2);background:var(--glass)}
+#lbPanel .send{width:100%;justify-content:center;padding:10px 14px}
 
 /* ---------- Responsive ---------- */
 @media (max-width:860px){
@@ -248,7 +265,9 @@ select.mini option{background:#1a1411}
   #stream{padding:6px 16px 20px}
   #composer{padding:6px 14px 14px}
   .msg.user .body{max-width:94%}
-  .pop{position:fixed !important;left:12px !important;right:12px !important;top:auto !important;bottom:12px !important;width:auto}
+  #lb .stage{inset:64px 12px 292px 12px}
+  #lb .wrap img{max-width:calc(100vw - 24px) !important;max-height:calc(100dvh - 364px) !important}
+  #lbPanel{left:12px;right:12px;top:auto;bottom:12px;width:auto;height:268px}
   #toasts{bottom:150px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}}
@@ -281,7 +300,7 @@ select.mini option{background:#1a1411}
         <div>
           <h1>Upload a sketch or clay render</h1>
           <p>I detect the room, the windows and the light direction, keep every shape and finish, and give you a photorealistic render.</p>
-          <div class="hint"><span>Keeps your layout</span><span>Keeps your finishes</span><span>Sun from your windows</span><span>Pin and revise</span></div>
+          <div class="hint"><span>Keeps your layout</span><span>Keeps your finishes</span><span>Sun from your windows</span><span>Pin several spots</span></div>
         </div>
       </div>
       <div id="col" class="col hidden"></div>
@@ -325,11 +344,17 @@ select.mini option{background:#1a1411}
 <div id="lb" role="dialog" aria-modal="true" aria-label="Render viewer">
   <div class="back"></div>
   <div class="bar">
-    <div class="hint"><b>Click anywhere on the picture</b> to pin a change, for example a frame, a sofa or a wall.</div>
+    <div class="hint"><b>Click the picture</b> to drop a point, as many as you need. Describe each change, then send them all.</div>
     <button class="btn" id="lbDownload" type="button">Download</button>
     <button class="btn" id="lbClose" type="button" aria-label="Close viewer">Close ✕</button>
   </div>
   <div class="stage"><div class="wrap" id="lbWrap"><img id="lbImg" alt="Render"></div></div>
+  <aside id="lbPanel" aria-label="Corrections">
+    <div class="ph"><b id="lbCount">0 corrections</b><button class="btn" id="lbClear" type="button">Clear all</button></div>
+    <ul id="lbList"></ul>
+    <div class="quick" id="lbQuick"></div>
+    <button class="btn primary send" id="lbSend" type="button">Send correction</button>
+  </aside>
 </div>
 
 <div id="drop"><div>Drop your image to start</div></div>
@@ -488,10 +513,14 @@ function renderHistory() {
 
 function userMsgEl(m) {
   const bubble = h("div", { class: "bubble" });
-  if (m.kind === "revision") bubble.append(h("div", { class: "tag", text: "Targeted revision" }));
+  const pins = m.pins || (m.pin ? [m.pin] : []);
+  if (m.kind === "revision") bubble.append(h("div", { class: "tag", text: pins.length > 1 ? `Targeted revision · ${pins.length} spots` : "Targeted revision" }));
   if (m.image) {
     const t = h("div", { class: "thumb" }, h("img", { src: urlFor(m.image), alt: "Attached image" }));
-    if (m.pin) { const r = h("div", { class: "ring" }); r.style.left = m.pin.x * 100 + "%"; r.style.top = m.pin.y * 100 + "%"; t.append(r); }
+    pins.forEach((p, i) => {
+      const d = h("div", { class: "dot", text: pins.length > 1 ? String(i + 1) : "" });
+      d.style.left = p.x * 100 + "%"; d.style.top = p.y * 100 + "%"; t.append(d);
+    });
     bubble.append(t);
   }
   bubble.append(h("div", { class: "txt", text: m.text || (m.kind === "render" ? "Render this image." : "") }));
@@ -504,6 +533,7 @@ function aiMsgEl(m) {
     body.append(h("div", { class: "status-line" }, h("span", { class: "spin" }), h("span", { class: "label", text: m.label || "Processing render request…" })));
     const sk = h("div", { class: "skeleton" }, h("div", { class: "bar" }));
     sk.style.aspectRatio = m.aspect || "4 / 3";
+    sk.querySelector(".bar").style.width = Math.max(4, m.progress || 0) + "%";   // survives a re-render of the chat
     body.append(sk);
   } else if (m.status === "error") {
     body.append(h("div", { class: "err", text: m.error || "Render failed." }),
@@ -551,13 +581,14 @@ function refreshMsg(m, scroll) {
   old.replaceWith(msgEl(m));
   if (scroll) requestAnimationFrame(() => { $("stream").scrollTop = $("stream").scrollHeight; });
 }
-// Cheap live update while polling: only text and the progress bar change
+// Cheap live update while polling: only text and the progress bar change. The bar never moves backwards.
 function setLive(m, label, progress) {
   m.label = label;
+  if (progress != null) m.progress = Math.max(m.progress || 0, progress);
   const el = $("col").querySelector(`[data-id="${m.id}"]`);
   if (!el) return;
   const l = el.querySelector(".label"); if (l) l.textContent = label;
-  const b = el.querySelector(".skeleton .bar"); if (b && progress != null) b.style.width = Math.max(4, progress) + "%";
+  const b = el.querySelector(".skeleton .bar"); if (b) b.style.width = Math.max(4, m.progress || 0) + "%";
 }
 
 /* ============================================================
@@ -673,7 +704,7 @@ async function postForm(path, fd) {
 async function startRender(file, text, reuse) {
   const chat = ensureChat(text);
   let um, am;
-  if (reuse) { um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.label = "Processing render request…"; }
+  if (reuse) { um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Processing render request…"; }
   else {
     um = { id: uid(), role: "user", kind: "render", text, image: file, quality: state.quality, style: $("style").value, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "render", status: "loading", label: "Processing render request…", aspect: await dimsOf(file), ts: Date.now() };
@@ -693,20 +724,23 @@ async function startRender(file, text, reuse) {
   } catch (e) { await failMsg(am, chat, e); }
 }
 
-async function startRevision(chat, src, pin, instruction, reuse) {
+async function startRevision(chat, src, pins, reuse) {
   let um, am;
-  if (reuse) { um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.label = "Sending your revision…"; }
-  else {
-    um = { id: uid(), role: "user", kind: "revision", text: instruction, image: src.image, pin, baseJobId: src.jobId || null, quality: state.quality, ts: Date.now() };
-    am = { id: uid(), role: "ai", kind: "revision", status: "loading", label: "Sending your revision…", aspect: await dimsOf(src.image), ts: Date.now() };
+  if (reuse) {
+    um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Sending your corrections…";
+    um.pins = um.pins || pins;
+  } else {
+    const summary = pins.map((p, i) => (pins.length > 1 ? `${i + 1}. ` : "") + p.text).join("\n");
+    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, quality: state.quality, ts: Date.now() };
+    am = { id: uid(), role: "ai", kind: "revision", status: "loading", label: "Sending your corrections…", progress: 0, aspect: await dimsOf(src.image), ts: Date.now() };
     chat.messages.push(um, am);
   }
   touch(chat); renderStream();
   await saveChat(chat);
   const build = (withFile) => {
     const fd = new FormData();
-    fd.append("x", String(um.pin.x)); fd.append("y", String(um.pin.y));
-    fd.append("instruction", um.text);
+    // only coordinates are sent: x and y as 0..1 of the picture, nothing is drawn on the image
+    fd.append("points", JSON.stringify(um.pins.map((p) => ({ x: p.x, y: p.y, instruction: p.text, size: p.size || "medium" }))));
     fd.append("quality", um.quality || "4k");
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
@@ -725,9 +759,11 @@ function retry(am) {
   const chat = active(); if (!chat) return;
   const i = chat.messages.indexOf(am), um = chat.messages[i - 1];
   if (!um) return;
-  refreshMsg((am.status = "loading", am.label = "Processing render request…", am));
-  if (um.kind === "revision") startRevision(chat, null, um.pin, um.text, { user: um, ai: am });
-  else startRender(um.image, um.text, { user: um, ai: am });
+  refreshMsg((am.status = "loading", am.progress = 0, am.label = "Processing render request…", am));
+  if (um.kind === "revision") {
+    const pins = um.pins || (um.pin ? [{ x: um.pin.x, y: um.pin.y, text: um.text, size: "medium" }] : []);
+    startRevision(chat, null, pins, { user: um, ai: am });
+  } else startRender(um.image, um.text, { user: um, ai: am });
 }
 
 async function downloadRender(m, btn) {
@@ -749,77 +785,101 @@ async function downloadRender(m, btn) {
 /* ============================================================
    Lightbox with pins and targeted revision
    ============================================================ */
-const lb = { msg: null, pin: null, pop: null, pinEl: null };
+const MAX_PINS = 8;
+const lb = { msg: null, pins: [], active: -1 };
+const SIZES = [["small", "Small area"], ["medium", "Medium area"], ["large", "Large area"]];
 const QUICK = ["Replace with abstract art", "Change to a darker wood finish", "Make it larger", "Remove this item"];
 
 function openLightbox(m) {
-  lb.msg = m; lb.pin = null;
+  lb.msg = m; lb.pins = []; lb.active = -1;
   $("lbImg").src = urlFor(m.image);
+  drawPins();
   const el = $("lb"); el.classList.add("show");
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("open")));
   document.body.style.overflow = "hidden";
   $("lbClose").focus();
 }
 function closeLightbox() {
-  clearPin();
   const el = $("lb");
   el.classList.remove("open");
-  setTimeout(() => { el.classList.remove("show"); $("lbImg").removeAttribute("src"); }, 300);
+  setTimeout(() => { if (!lb.msg) { el.classList.remove("show"); $("lbImg").removeAttribute("src"); } }, 320);
   document.body.style.overflow = "";
-  lb.msg = null;
+  lb.msg = null; lb.pins = []; lb.active = -1;
+  drawPins();
 }
-function clearPin() {
-  if (lb.pinEl) lb.pinEl.remove();
-  if (lb.pop) lb.pop.remove();
-  lb.pinEl = lb.pop = lb.pin = null;
+function setActive(i) {
+  lb.active = i;
+  $("lbWrap").querySelectorAll(".pin").forEach((d, k) => d.classList.toggle("on", k === i));
+  $("lbList").querySelectorAll(".row").forEach((r, k) => r.classList.toggle("on", k === i));
 }
-function placePin(x, y) {
-  clearPin();
-  lb.pin = { x, y };
-  const wrap = $("lbWrap");
-  const pin = h("div", { class: "pin", role: "img", "aria-label": "Pinned point" });
-  pin.style.left = x * 100 + "%"; pin.style.top = y * 100 + "%";
-  pin.addEventListener("click", (e) => e.stopPropagation());
-  const ta = h("textarea", { maxlength: "300", placeholder: "Describe the change, e.g. Replace this frame with abstract art", "aria-label": "Change request" });
-  const send = h("button", { class: "btn primary", type: "button", text: "Send Revision" });
-  const quick = h("div", { class: "quick" }, QUICK.map((q) => h("button", { type: "button", text: q, onclick: () => { ta.value = q; ta.focus(); } })));
-  const pop = h("div", { class: "pop", role: "group", "aria-label": "Targeted revision" },
-    h("h4", { text: "Targeted revision" }),
-    h("small", { text: `Pinned at ${Math.round(x * 100)}% across, ${Math.round(y * 100)}% down. Only this spot is edited.` }),
-    ta, quick,
-    h("div", { class: "row" }, h("button", { class: "btn", type: "button", text: "Cancel", onclick: clearPin }), send));
-  pop.addEventListener("click", (e) => e.stopPropagation());
-  // Put the popover on the side that has room
-  const gap = 26;
-  if (x > 0.55) pop.style.right = `calc(${(1 - x) * 100}% + ${gap}px)`; else pop.style.left = `calc(${x * 100}% + ${gap}px)`;
-  if (y > 0.55) pop.style.bottom = `calc(${(1 - y) * 100}% - 30px)`; else pop.style.top = `calc(${y * 100}% - 30px)`;
-  wrap.append(pin, pop);
-  lb.pinEl = pin; lb.pop = pop;
-  const submit = () => {
-    const instruction = ta.value.trim();
-    if (!instruction) { ta.focus(); toast("Describe the change you want at this spot."); return; }
-    const src = lb.msg, p = { ...lb.pin }, chat = active();
-    closeLightbox();
-    if (!chat) return;
-    startRevision(chat, src, p, instruction);
-  };
-  send.addEventListener("click", submit);
-  ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); } });
-  setTimeout(() => ta.focus(), 30);
+function focusRow(i) {
+  const ta = $("lbList").querySelectorAll("textarea")[i];
+  if (ta) setTimeout(() => ta.focus(), 20);
 }
+// Rebuilds the numbered points on the picture and the list of corrections beside it
+function drawPins(focusIdx) {
+  const wrap = $("lbWrap"), list = $("lbList");
+  wrap.querySelectorAll(".pin").forEach((p) => p.remove());
+  list.replaceChildren();
+  if (!lb.pins.length) list.append(h("li", { class: "empty", text: "No points yet. Click the picture where something should change. You can add several." }));
+  lb.pins.forEach((p, i) => {
+    const dot = h("div", { class: "pin" + (i === lb.active ? " on" : ""), role: "button", "aria-label": `Point ${i + 1}`, text: String(i + 1) });
+    dot.style.left = p.x * 100 + "%"; dot.style.top = p.y * 100 + "%";
+    dot.addEventListener("click", (e) => { e.stopPropagation(); setActive(i); focusRow(i); });
+    wrap.append(dot);
+
+    const ta = h("textarea", { maxlength: "300", placeholder: "What should change here? e.g. change sofa colour to green leather", "aria-label": `Correction ${i + 1}` });
+    ta.value = p.text;
+    ta.addEventListener("input", () => { p.text = ta.value; });
+    ta.addEventListener("focus", () => setActive(i));
+    ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitPins(); } });
+    const size = h("select", { class: "mini", "aria-label": `Area size for point ${i + 1}`, title: "How much around the point may change" },
+      SIZES.map(([v, t]) => h("option", { value: v, text: t, selected: p.size === v })));
+    size.addEventListener("change", () => { p.size = size.value; });
+    const del = h("button", { class: "x", type: "button", "aria-label": `Remove point ${i + 1}`, text: "×",
+      onclick: () => { lb.pins.splice(i, 1); lb.active = -1; drawPins(); } });
+    list.append(h("li", { class: "row" + (i === lb.active ? " on" : "") }, h("span", { class: "num", text: String(i + 1) }), ta, del, size));
+  });
+  const n = lb.pins.length;
+  $("lbCount").textContent = n === 1 ? "1 correction" : `${n} corrections`;
+  $("lbSend").textContent = n > 1 ? `Send ${n} corrections` : "Send correction";
+  $("lbSend").disabled = !n;
+  $("lbClear").classList.toggle("hidden", !n);
+  if (focusIdx != null) focusRow(focusIdx);
+}
+function submitPins() {
+  if (!lb.pins.length) { toast("Click the picture to mark a spot first."); return; }
+  const empty = lb.pins.findIndex((p) => !p.text.trim());
+  if (empty >= 0) { toast(`Describe the change for point ${empty + 1}.`); setActive(empty); focusRow(empty); return; }
+  const src = lb.msg, pins = lb.pins.map((p) => ({ x: p.x, y: p.y, text: p.text.trim(), size: p.size })), chat = active();
+  closeLightbox();
+  if (!chat || !src) return;
+  startRevision(chat, src, pins);
+}
+$("lbQuick").append(...QUICK.map((q) => h("button", { type: "button", text: q, onclick: () => {
+  if (!lb.pins.length) { toast("Click the picture to mark a spot first."); return; }
+  const i = lb.active >= 0 ? lb.active : lb.pins.length - 1;
+  lb.pins[i].text = q; lb.active = i; drawPins(i);
+} })));
 $("lbWrap").addEventListener("click", (e) => {
-  const img = $("lbImg"), r = img.getBoundingClientRect();
+  const img = $("lbImg");
   if (e.target !== img) return;
+  if (lb.pins.length >= MAX_PINS) { toast(`You can mark up to ${MAX_PINS} spots at once.`); return; }
+  const r = img.getBoundingClientRect();
   const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-  placePin(x, y);
+  lb.pins.push({ x, y, text: "", size: "medium" });
+  lb.active = lb.pins.length - 1;
+  drawPins(lb.active);
 });
-$("lb").querySelector(".back").addEventListener("click", () => (lb.pin ? clearPin() : closeLightbox()));
-$("lb").querySelector(".stage").addEventListener("click", (e) => { if (e.target === e.currentTarget) (lb.pin ? clearPin() : closeLightbox()); });
+$("lbSend").addEventListener("click", submitPins);
+$("lbClear").addEventListener("click", () => { lb.pins = []; lb.active = -1; drawPins(); });
+$("lb").querySelector(".back").addEventListener("click", () => { if (!lb.pins.length) closeLightbox(); });
+$("lb").querySelector(".stage").addEventListener("click", (e) => { if (e.target === e.currentTarget && !lb.pins.length) closeLightbox(); });
 $("lbClose").addEventListener("click", closeLightbox);
 $("lbDownload").addEventListener("click", (e) => lb.msg && downloadRender(lb.msg, e.currentTarget));
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if ($("lb").classList.contains("show")) (lb.pin ? clearPin() : closeLightbox());
+  if ($("lb").classList.contains("show")) closeLightbox();
   else closeSidebar();
 });
 
