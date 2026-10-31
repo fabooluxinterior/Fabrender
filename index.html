@@ -125,6 +125,7 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:12p
   background:#ff4d4d;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);
   font-size:9px;font-weight:700;line-height:1;color:#fff;
 }
+.thumb .bx{position:absolute;border:2px dashed #ff4d4d;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
 .tag{align-self:flex-start;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);font-weight:600}
 .status-line{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
 .spin{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.18);border-top-color:var(--accent);animation:rot .8s linear infinite;flex:none}
@@ -211,6 +212,8 @@ select.mini option{background:#1a1411}
 #lb.open .back{opacity:1}
 #lb .bar{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:10px;padding:14px 20px;z-index:3;opacity:0;transform:translateY(-8px);transition:.3s var(--ease)}
 #lb.open .bar{opacity:1;transform:none}
+#lb .bar .seg{flex:none}
+#lb .bar .seg button{padding:5px 11px;font-size:12.5px;white-space:nowrap}
 #lb .bar .hint{flex:1;color:var(--muted);font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #lb .bar .hint b{color:var(--accent);font-weight:600}
 #lb .stage{position:absolute;inset:64px 372px 24px 24px;display:grid;place-items:center;z-index:2}
@@ -223,6 +226,8 @@ select.mini option{background:#1a1411}
   font-size:11.5px;font-weight:700;line-height:1;color:#fff;
   animation:pop .3s var(--ease) both;cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s;
 }
+#lbCanvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;border-radius:12px}
+#lbWrap{touch-action:none}
 .pin:hover,.pin.on{transform:scale(1.2);box-shadow:0 0 0 4px rgba(255,77,77,.38),0 3px 10px rgba(0,0,0,.65)}
 @keyframes pop{from{transform:scale(.2);opacity:0}}
 #lbPanel{
@@ -249,7 +254,8 @@ select.mini option{background:#1a1411}
 #lbList textarea:focus{border-color:rgba(227,185,138,.7)}
 #lbList .x{width:26px;height:26px;border-radius:8px;color:var(--muted);font-size:17px}
 #lbList .x:hover{color:var(--bad);background:rgba(255,93,93,.14)}
-#lbList select.mini{grid-column:2;justify-self:start;font-size:12px;padding:3px 10px}
+#lbList .info{grid-column:2 / 4;font-size:12.5px;color:var(--muted);min-height:16px;display:flex;align-items:center;gap:7px}
+#lbList .info.busy::before{content:"";width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.2);border-top-color:var(--accent);animation:rot .8s linear infinite;flex:none}
 #lbPanel .quick{display:flex;flex-wrap:wrap;gap:6px}
 #lbPanel .quick button{padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted);transition:.18s}
 #lbPanel .quick button:hover{color:var(--text);border-color:var(--line-2);background:var(--glass)}
@@ -265,8 +271,10 @@ select.mini option{background:#1a1411}
   #stream{padding:6px 16px 20px}
   #composer{padding:6px 14px 14px}
   .msg.user .body{max-width:94%}
-  #lb .stage{inset:64px 12px 292px 12px}
-  #lb .wrap img{max-width:calc(100vw - 24px) !important;max-height:calc(100dvh - 364px) !important}
+  #lb .bar{flex-wrap:wrap;gap:8px;padding:10px 12px}
+  #lb .bar .hint{flex-basis:100%;order:3;white-space:normal;font-size:12.5px;line-height:1.35}
+  #lb .stage{inset:128px 12px 292px 12px}
+  #lb .wrap img{max-width:calc(100vw - 24px) !important;max-height:calc(100dvh - 430px) !important}
   #lbPanel{left:12px;right:12px;top:auto;bottom:12px;width:auto;height:268px}
   #toasts{bottom:150px}
 }
@@ -320,12 +328,6 @@ select.mini option{background:#1a1411}
           </button>
         </div>
         <div class="opts">
-          <span>Quality</span>
-          <div class="seg" id="qSeg" role="group" aria-label="Quality">
-            <button type="button" data-q="4k_fast" aria-pressed="true" title="Quick 4K: sharp, keeps every shape. About 1-2 minutes">4K fast</button>
-            <button type="button" data-q="4k" aria-pressed="false" title="Maximum detail: redraws fine texture tile by tile. Slowest">4K max detail</button>
-            <button type="button" data-q="standard" aria-pressed="false" title="About 1 megapixel, quickest">Draft</button>
-          </div>
           <span>Style</span>
           <select id="style" class="mini" aria-label="Design style">
             <option value="modern" selected>Modern</option>
@@ -345,11 +347,17 @@ select.mini option{background:#1a1411}
 <div id="lb" role="dialog" aria-modal="true" aria-label="Render viewer">
   <div class="back"></div>
   <div class="bar">
-    <div class="hint"><b>Click the picture</b> to drop a point, as many as you need. Describe each change, then send them all.</div>
+    <div class="hint" id="lbHint"></div>
+    <div class="seg" id="lbTools" role="group" aria-label="Selection tool">
+      <button type="button" data-t="object" aria-pressed="true" title="Click an object to select all of it">Object</button>
+      <button type="button" data-t="box" aria-pressed="false" title="Drag a rectangle">Box</button>
+      <button type="button" data-t="add" aria-pressed="false" title="Add a missing part to the selected outline">+ Add area</button>
+      <button type="button" data-t="sub" aria-pressed="false" title="Cut a wrong part out of the selected outline (Shift-click)">&minus; Remove area</button>
+    </div>
     <button class="btn" id="lbDownload" type="button">Download</button>
     <button class="btn" id="lbClose" type="button" aria-label="Close viewer">Close ✕</button>
   </div>
-  <div class="stage"><div class="wrap" id="lbWrap"><img id="lbImg" alt="Render"></div></div>
+  <div class="stage"><div class="wrap" id="lbWrap"><img id="lbImg" alt="Render"><canvas id="lbCanvas"></canvas></div></div>
   <aside id="lbPanel" aria-label="Corrections">
     <div class="ph"><b id="lbCount">0 corrections</b><button class="btn" id="lbClear" type="button">Clear all</button></div>
     <ul id="lbList"></ul>
@@ -375,7 +383,8 @@ window.addEventListener("error", (e) => {
 const API_BASE = "https://render.everpick.co.in";
 const API_KEY = "my_secure_random_key_123";        // must match API_KEY in the backend .env
 const HEALTH_MS = 15000, HEALTH_TIMEOUT_MS = 5000;
-const POLL_MS = 2000, MAX_WAIT_MS = 25 * 60 * 1000, UPLOAD_TIMEOUT_MS = 90 * 1000;
+const POLL_MS = 1000, MAX_WAIT_MS = 25 * 60 * 1000, UPLOAD_TIMEOUT_MS = 90 * 1000;
+const SEGMENT_TIMEOUT_MS = 5 * 60 * 1000;      // the first outline downloads and starts the detector
 const MAX_UPLOAD_MB = 15;
 
 /* ============================================================
@@ -465,7 +474,6 @@ const state = {
   chats: [],            // newest first
   activeId: null,       // null = blank workspace (a chat is created on the first send)
   attach: null,         // { file }
-  quality: "4k_fast",
   online: false,
 };
 const active = () => state.chats.find((c) => c.id === state.activeId) || null;
@@ -519,6 +527,12 @@ function userMsgEl(m) {
   if (m.image) {
     const t = h("div", { class: "thumb" }, h("img", { src: urlFor(m.image), alt: "Attached image" }));
     pins.forEach((p, i) => {
+      if (p.box) {
+        const bx = h("div", { class: "bx" });
+        bx.style.left = p.box[0] * 100 + "%"; bx.style.top = p.box[1] * 100 + "%";
+        bx.style.width = (p.box[2] - p.box[0]) * 100 + "%"; bx.style.height = (p.box[3] - p.box[1]) * 100 + "%";
+        t.append(bx);
+      }
       const d = h("div", { class: "dot", text: pins.length > 1 ? String(i + 1) : "" });
       d.style.left = p.x * 100 + "%"; d.style.top = p.y * 100 + "%"; t.append(d);
     });
@@ -549,6 +563,10 @@ function aiMsgEl(m) {
     if (mt.light) meta.append(h("span", { text: mt.light }));
     if (mt.width) meta.append(h("span", { text: `${mt.width}×${mt.height}px` }));
     if (mt.seconds != null) meta.append(h("span", { text: `${Math.round(mt.seconds)}s on the GPU` }));
+    if (mt.edits && mt.edits.length) {
+      const n = mt.edits.length, iso = mt.edits.filter((x) => x.isolated).length;
+      meta.append(h("span", { text: iso === n ? (n > 1 ? `${n} whole objects edited` : "Whole object edited") : `${iso} of ${n} objects outlined` }));
+    }
     if (meta.children.length) body.append(meta);
     if (mt.notice) body.append(h("div", { class: "note", text: mt.notice }));
     body.append(h("div", { class: "actions" },
@@ -683,7 +701,7 @@ async function finishMsg(m, chat, job, jobId) {
   m.image = await (await fetch(job.image)).blob();      // data URL -> Blob
   m.jobId = jobId;
   m.status = "done";
-  m.meta = { room_label: job.room_label, light: job.light, width: job.width, height: job.height, seconds: job.seconds, notice: job.notice, can_download: job.can_download };
+  m.meta = { room_label: job.room_label, light: job.light, width: job.width, height: job.height, seconds: job.seconds, notice: job.notice, can_download: job.can_download, edits: job.edits || null };
   await saveChat(chat);
   refreshMsg(m, true);
 }
@@ -693,8 +711,8 @@ async function failMsg(m, chat, e) {
   refreshMsg(m, true);
 }
 
-async function postForm(path, fd) {
-  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT_MS);
+async function postForm(path, fd, timeoutMs = UPLOAD_TIMEOUT_MS) {
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(API_BASE + path, { method: "POST", headers: authHeaders(), body: fd, signal: ctrl.signal });
     if (!res.ok) throw await readError(res);
@@ -707,7 +725,7 @@ async function startRender(file, text, reuse) {
   let um, am;
   if (reuse) { um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Processing render request…"; }
   else {
-    um = { id: uid(), role: "user", kind: "render", text, image: file, quality: state.quality, style: $("style").value, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "render", text, image: file, style: $("style").value, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "render", status: "loading", label: "Processing render request…", aspect: await dimsOf(file), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -718,7 +736,6 @@ async function startRender(file, text, reuse) {
     fd.append("file", um.image, file.name || "upload.png");
     fd.append("style", um.style || "modern");
     fd.append("extra_prompt", um.text || "");
-    fd.append("quality", um.quality || "4k");
     const first = await postForm("/render", fd);
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
@@ -732,7 +749,7 @@ async function startRevision(chat, src, pins, reuse) {
     um.pins = um.pins || pins;
   } else {
     const summary = pins.map((p, i) => (pins.length > 1 ? `${i + 1}. ` : "") + p.text).join("\n");
-    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, quality: state.quality, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "revision", status: "loading", label: "Sending your corrections…", progress: 0, aspect: await dimsOf(src.image), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -740,9 +757,10 @@ async function startRevision(chat, src, pins, reuse) {
   await saveChat(chat);
   const build = (withFile) => {
     const fd = new FormData();
-    // only coordinates are sent: x and y as 0..1 of the picture, nothing is drawn on the image
-    fd.append("points", JSON.stringify(um.pins.map((p) => ({ x: p.x, y: p.y, instruction: p.text, size: p.size || "medium" }))));
-    fd.append("quality", um.quality || "4k");
+    // Only coordinates are sent (fractions 0..1 of the picture): the point, an optional box and the +/- clicks that
+    // refined the outline. The server outlines the object itself, nothing is drawn on the image.
+    fd.append("points", JSON.stringify(um.pins.map((p) => ({
+      x: p.x, y: p.y, instruction: p.text, box: p.box || null, include: p.include || [], exclude: p.exclude || [] }))));
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
     return fd;
@@ -784,15 +802,32 @@ async function downloadRender(m, btn) {
 }
 
 /* ============================================================
-   Lightbox with pins and targeted revision
+   Lightbox: click an object (or drag a box) and the server outlines the WHOLE object
    ============================================================ */
 const MAX_PINS = 8;
-const lb = { msg: null, pins: [], active: -1 };
-const SIZES = [["small", "Small area"], ["medium", "Medium area"], ["large", "Large area"]];
-const QUICK = ["Replace with abstract art", "Change to a darker wood finish", "Make it larger", "Remove this item"];
+const lb = { msg: null, pins: [], active: -1, tool: "object", drag: null };
+const COLORS = ["#4da3ff", "#ff9f43", "#3ddc97", "#c77dff", "#ff6b9a", "#ffd166", "#5eead4", "#f87171"];
+const TOOLS = [["object", "Object"], ["box", "Box"], ["add", "+ Add area"], ["sub", "− Remove area"]];
+const TOOL_HINT = {
+  object: ["Click an object", " to select all of it (the whole sofa, the whole cabinet door), then describe the change."],
+  box: ["Drag a box", " around anything the click does not catch, such as a group of items or a wall panel."],
+  add: ["Click a missing part", " of the selected object to add it to the outline."],
+  sub: ["Click a wrong part", " to cut it out of the selected outline. Shift-click does this in any mode."],
+};
+const QUICK = ["Change colour to white", "Change to a darker wood finish", "Replace with abstract art", "Remove this item"];
+
+const colorOf = (i) => COLORS[i % COLORS.length];
+function loadImg(src) {
+  return new Promise((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = src; });
+}
+function toNorm(e) {
+  const r = $("lbImg").getBoundingClientRect();
+  return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+}
 
 function openLightbox(m) {
-  lb.msg = m; lb.pins = []; lb.active = -1;
+  lb.msg = m; lb.pins = []; lb.active = -1; lb.drag = null;
+  setTool("object");
   $("lbImg").src = urlFor(m.image);
   drawPins();
   const el = $("lb"); el.classList.add("show");
@@ -805,13 +840,110 @@ function closeLightbox() {
   el.classList.remove("open");
   setTimeout(() => { if (!lb.msg) { el.classList.remove("show"); $("lbImg").removeAttribute("src"); } }, 320);
   document.body.style.overflow = "";
-  lb.msg = null; lb.pins = []; lb.active = -1;
+  lb.msg = null; lb.pins = []; lb.active = -1; lb.drag = null;
   drawPins();
+}
+function setTool(t) {
+  lb.tool = t;
+  for (const b of $("lbTools").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.t === t));
+  const [b, rest] = TOOL_HINT[t];
+  $("lbHint").replaceChildren(h("b", { text: b }), rest);
+}
+
+/* ---- canvas overlay (masks, boxes, +/- points) ---- */
+function sizeCanvas() {
+  const img = $("lbImg"), c = $("lbCanvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
+  c.width = Math.max(1, Math.round(img.clientWidth * dpr)); c.height = Math.max(1, Math.round(img.clientHeight * dpr));
+}
+function drawCanvas() {
+  const c = $("lbCanvas"), ctx = c.getContext("2d"), W = c.width, H = c.height, dpr = W / Math.max(1, $("lbImg").clientWidth);
+  ctx.clearRect(0, 0, W, H);
+  lb.pins.forEach((p, i) => {
+    const col = colorOf(i), on = i === lb.active;
+    if (p.tint) {
+      ctx.globalAlpha = on ? 0.5 : 0.3; ctx.drawImage(p.tint, 0, 0, W, H);
+      ctx.globalAlpha = on ? 1 : 0.75; ctx.drawImage(p.edge, 0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+    if (p.box) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2 * dpr; ctx.setLineDash([8 * dpr, 6 * dpr]);
+      ctx.strokeRect(p.box[0] * W, p.box[1] * H, (p.box[2] - p.box[0]) * W, (p.box[3] - p.box[1]) * H); ctx.setLineDash([]);
+    }
+    for (const [list, fill, sign] of [[p.include, "#35e08a", "+"], [p.exclude, "#ff5d5d", "−"]]) {
+      for (const q of list) {
+        ctx.beginPath(); ctx.arc(q.x * W, q.y * H, 9 * dpr, 0, 6.2832); ctx.fillStyle = fill; ctx.fill();
+        ctx.lineWidth = 2 * dpr; ctx.strokeStyle = "#fff"; ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = `700 ${13 * dpr}px DM Sans, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(sign, q.x * W, q.y * H + dpr * 0.5);
+      }
+    }
+  });
+  const d = lb.drag;
+  if (d && d.box) {
+    ctx.strokeStyle = "#e3b98a"; ctx.lineWidth = 2 * dpr; ctx.setLineDash([8 * dpr, 6 * dpr]);
+    ctx.strokeRect(d.box[0] * W, d.box[1] * H, (d.box[2] - d.box[0]) * W, (d.box[3] - d.box[1]) * H); ctx.setLineDash([]);
+  }
+}
+// The server sends the outline as a white-on-transparent PNG. Tint it, and build a ring around it for the edge.
+async function buildOverlay(p, dataUrl, col) {
+  const img = await loadImg(dataUrl), w = img.naturalWidth, h = img.naturalHeight;
+  const t = document.createElement("canvas"); t.width = w; t.height = h;
+  const tx = t.getContext("2d"); tx.drawImage(img, 0, 0); tx.globalCompositeOperation = "source-in"; tx.fillStyle = col; tx.fillRect(0, 0, w, h);
+  const e = document.createElement("canvas"); e.width = w; e.height = h;
+  const ex = e.getContext("2d");
+  for (const [dx, dy] of [[-1.5, 0], [1.5, 0], [0, -1.5], [0, 1.5], [-1, -1], [1, 1], [-1, 1], [1, -1]]) ex.drawImage(img, dx, dy);
+  ex.globalCompositeOperation = "destination-out"; ex.drawImage(img, 0, 0);
+  ex.globalCompositeOperation = "source-in"; ex.fillStyle = "#fff"; ex.fillRect(0, 0, w, h);
+  p.tint = t; p.edge = e;
+}
+
+/* ---- asking the server for the outline ---- */
+const pinPayload = (p) => ({ x: p.x, y: p.y, include: p.include, exclude: p.exclude, box: p.box || null, instruction: p.text || "" });
+
+async function segmentPin(p) {
+  const rev = (p.rev = (p.rev || 0) + 1);
+  p.busy = true; p.info = "Outlining the object…"; updateRow(p);
+  const slow = setTimeout(() => { if (p.busy && p.rev === rev) { p.info = "Starting the object detector (first use can take a minute)…"; updateRow(p); } }, 3500);
+  try {
+    const fd = new FormData();
+    fd.append("points", JSON.stringify([pinPayload(p)]));
+    const src = lb.msg;
+    let r;
+    if (src.jobId) {
+      fd.append("base_job_id", src.jobId);
+      try { r = await postForm("/segment", fd, SEGMENT_TIMEOUT_MS); }
+      catch (e) { if (e.status !== 404) throw e; fd.delete("base_job_id"); fd.append("file", src.image, "base.webp"); r = await postForm("/segment", fd, SEGMENT_TIMEOUT_MS); }
+    } else { fd.append("file", src.image, "base.webp"); r = await postForm("/segment", fd, SEGMENT_TIMEOUT_MS); }
+    if (p.rev !== rev) return;
+    const m = r.masks && r.masks[0];
+    if (!m || !m.mask) { p.tint = p.edge = null; p.area = null; p.info = "Could not outline an object here. Click the middle of it, or use Box."; }
+    else {
+      await buildOverlay(p, m.mask, colorOf(lb.pins.indexOf(p)));
+      p.area = m.area;
+      p.info = `Whole object selected · ${Math.max(1, Math.round(m.area * 100))}% of the picture`;
+    }
+  } catch (e) {
+    if (p.rev !== rev) return;
+    p.tint = p.edge = null; p.area = null;
+    p.info = e.status === 503 ? "Object detection is not available on the server, so the area around the point will be edited instead." : readableError(e);
+  } finally {
+    if (p.rev === rev) { p.busy = false; updateRow(p); drawCanvas(); }
+  }
+}
+
+/* ---- the corrections list ---- */
+function rowFor(p) { return $("lbList").querySelector(`.row[data-i="${lb.pins.indexOf(p)}"]`); }
+function updateRow(p) {
+  const row = rowFor(p); if (!row) return;
+  const info = row.querySelector(".info");
+  info.textContent = p.info || "";
+  info.classList.toggle("busy", !!p.busy);
 }
 function setActive(i) {
   lb.active = i;
   $("lbWrap").querySelectorAll(".pin").forEach((d, k) => d.classList.toggle("on", k === i));
   $("lbList").querySelectorAll(".row").forEach((r, k) => r.classList.toggle("on", k === i));
+  drawCanvas();
 }
 function focusRow(i) {
   const ta = $("lbList").querySelectorAll("textarea")[i];
@@ -822,24 +954,24 @@ function drawPins(focusIdx) {
   const wrap = $("lbWrap"), list = $("lbList");
   wrap.querySelectorAll(".pin").forEach((p) => p.remove());
   list.replaceChildren();
-  if (!lb.pins.length) list.append(h("li", { class: "empty", text: "No points yet. Click the picture where something should change. You can add several." }));
+  if (!lb.pins.length) list.append(h("li", { class: "empty", text: "Nothing selected yet. Click an object in the picture, or drag a box. You can mark several." }));
   lb.pins.forEach((p, i) => {
     const dot = h("div", { class: "pin" + (i === lb.active ? " on" : ""), role: "button", "aria-label": `Point ${i + 1}`, text: String(i + 1) });
-    dot.style.left = p.x * 100 + "%"; dot.style.top = p.y * 100 + "%";
+    dot.style.left = p.x * 100 + "%"; dot.style.top = p.y * 100 + "%"; dot.style.background = colorOf(i);
     dot.addEventListener("click", (e) => { e.stopPropagation(); setActive(i); focusRow(i); });
+    dot.addEventListener("pointerdown", (e) => e.stopPropagation());
     wrap.append(dot);
 
-    const ta = h("textarea", { maxlength: "300", placeholder: "What should change here? e.g. change sofa colour to green leather", "aria-label": `Correction ${i + 1}` });
+    const ta = h("textarea", { maxlength: "300", placeholder: "What should change? e.g. change the sofa colour to white", "aria-label": `Correction ${i + 1}` });
     ta.value = p.text;
     ta.addEventListener("input", () => { p.text = ta.value; });
     ta.addEventListener("focus", () => setActive(i));
     ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitPins(); } });
-    const size = h("select", { class: "mini", "aria-label": `Area size for point ${i + 1}`, title: "How much around the point may change" },
-      SIZES.map(([v, t]) => h("option", { value: v, text: t, selected: p.size === v })));
-    size.addEventListener("change", () => { p.size = size.value; });
+    const info = h("div", { class: "info" + (p.busy ? " busy" : ""), text: p.info || "" });
     const del = h("button", { class: "x", type: "button", "aria-label": `Remove point ${i + 1}`, text: "×",
-      onclick: () => { lb.pins.splice(i, 1); lb.active = -1; drawPins(); } });
-    list.append(h("li", { class: "row" + (i === lb.active ? " on" : "") }, h("span", { class: "num", text: String(i + 1) }), ta, del, size));
+      onclick: () => { p.rev = (p.rev || 0) + 1; lb.pins.splice(i, 1); lb.active = -1; drawPins(); drawCanvas(); } });
+    const num = h("span", { class: "num", text: String(i + 1) }); num.style.background = colorOf(i);
+    list.append(h("li", { class: "row" + (i === lb.active ? " on" : ""), "data-i": String(i) }, num, ta, del, info));
   });
   const n = lb.pins.length;
   $("lbCount").textContent = n === 1 ? "1 correction" : `${n} corrections`;
@@ -847,33 +979,74 @@ function drawPins(focusIdx) {
   $("lbSend").disabled = !n;
   $("lbClear").classList.toggle("hidden", !n);
   if (focusIdx != null) focusRow(focusIdx);
+  drawCanvas();
+}
+function newCorrection(base) {
+  if (lb.pins.length >= MAX_PINS) { toast(`You can mark up to ${MAX_PINS} objects at once.`); return; }
+  const p = { x: 0, y: 0, box: null, text: "", include: [], exclude: [], tint: null, edge: null, busy: false, info: "", rev: 0, area: null, ...base };
+  lb.pins.push(p); lb.active = lb.pins.length - 1;
+  drawPins(lb.active);
+  segmentPin(p);
 }
 function submitPins() {
-  if (!lb.pins.length) { toast("Click the picture to mark a spot first."); return; }
+  if (!lb.pins.length) { toast("Click an object in the picture first."); return; }
   const empty = lb.pins.findIndex((p) => !p.text.trim());
   if (empty >= 0) { toast(`Describe the change for point ${empty + 1}.`); setActive(empty); focusRow(empty); return; }
-  const src = lb.msg, pins = lb.pins.map((p) => ({ x: p.x, y: p.y, text: p.text.trim(), size: p.size })), chat = active();
+  if (lb.pins.some((p) => p.busy)) { toast("Still outlining the object. One moment."); return; }
+  // plain data only: canvases cannot be stored in the chat history
+  const pins = lb.pins.map((p) => ({ x: p.x, y: p.y, text: p.text.trim(), box: p.box ? p.box.slice() : null,
+    include: p.include.map((q) => ({ ...q })), exclude: p.exclude.map((q) => ({ ...q })), area: p.area }));
+  const src = lb.msg, chat = active();
   closeLightbox();
   if (!chat || !src) return;
   startRevision(chat, src, pins);
 }
+
+/* ---- pointer handling on the picture: click = object, drag = box ---- */
+const wrapEl = $("lbWrap");
+wrapEl.addEventListener("pointerdown", (e) => {
+  if (e.target !== $("lbImg") || e.button !== 0) return;
+  wrapEl.setPointerCapture(e.pointerId);
+  const p = toNorm(e);
+  lb.drag = { x0: p.x, y0: p.y, sx: e.clientX, sy: e.clientY, moved: false, box: null };
+});
+wrapEl.addEventListener("pointermove", (e) => {
+  const d = lb.drag; if (!d) return;
+  if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 6) d.moved = true;
+  if (d.moved && lb.tool === "box") {
+    const p = toNorm(e);
+    d.box = [Math.min(d.x0, p.x), Math.min(d.y0, p.y), Math.max(d.x0, p.x), Math.max(d.y0, p.y)];
+    drawCanvas();
+  }
+});
+wrapEl.addEventListener("pointerup", (e) => {
+  const d = lb.drag; lb.drag = null; if (!d) return;
+  try { wrapEl.releasePointerCapture(e.pointerId); } catch (_) {}
+  const p = toNorm(e);
+  if (lb.tool === "box" && d.moved && d.box && d.box[2] - d.box[0] > 0.01 && d.box[3] - d.box[1] > 0.01) {
+    newCorrection({ x: (d.box[0] + d.box[2]) / 2, y: (d.box[1] + d.box[3]) / 2, box: d.box });
+  } else if (!d.moved || lb.tool !== "box") {
+    const tool = e.shiftKey || e.altKey ? "sub" : lb.tool;
+    if (tool === "add" || tool === "sub") {
+      const a = lb.pins[lb.active];
+      if (!a) { toast("Select an object first, then add or remove areas."); }
+      else { (tool === "add" ? a.include : a.exclude).push({ x: p.x, y: p.y }); drawCanvas(); segmentPin(a); }
+    } else newCorrection({ x: p.x, y: p.y });
+  }
+  drawCanvas();
+});
+wrapEl.addEventListener("pointercancel", () => { lb.drag = null; drawCanvas(); });
+
+$("lbImg").addEventListener("load", () => { sizeCanvas(); drawCanvas(); });
+window.addEventListener("resize", () => { if (lb.msg) { sizeCanvas(); drawCanvas(); } });
+$("lbTools").addEventListener("click", (e) => { const b = e.target.closest("button[data-t]"); if (b) setTool(b.dataset.t); });
 $("lbQuick").append(...QUICK.map((q) => h("button", { type: "button", text: q, onclick: () => {
-  if (!lb.pins.length) { toast("Click the picture to mark a spot first."); return; }
+  if (!lb.pins.length) { toast("Click an object in the picture first."); return; }
   const i = lb.active >= 0 ? lb.active : lb.pins.length - 1;
   lb.pins[i].text = q; lb.active = i; drawPins(i);
 } })));
-$("lbWrap").addEventListener("click", (e) => {
-  const img = $("lbImg");
-  if (e.target !== img) return;
-  if (lb.pins.length >= MAX_PINS) { toast(`You can mark up to ${MAX_PINS} spots at once.`); return; }
-  const r = img.getBoundingClientRect();
-  const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-  lb.pins.push({ x, y, text: "", size: "medium" });
-  lb.active = lb.pins.length - 1;
-  drawPins(lb.active);
-});
 $("lbSend").addEventListener("click", submitPins);
-$("lbClear").addEventListener("click", () => { lb.pins = []; lb.active = -1; drawPins(); });
+$("lbClear").addEventListener("click", () => { lb.pins.forEach((p) => { p.rev = (p.rev || 0) + 1; }); lb.pins = []; lb.active = -1; drawPins(); });
 $("lb").querySelector(".back").addEventListener("click", () => { if (!lb.pins.length) closeLightbox(); });
 $("lb").querySelector(".stage").addEventListener("click", (e) => { if (e.target === e.currentTarget && !lb.pins.length) closeLightbox(); });
 $("lbClose").addEventListener("click", closeLightbox);
@@ -897,11 +1070,6 @@ $("sendBtn").addEventListener("click", send);
 $("prompt").addEventListener("input", autosize);
 $("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!$("sendBtn").disabled) send(); else toast("Attach a sketch or clay render first."); } });
 $("style").addEventListener("change", () => {});
-$("qSeg").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-q]"); if (!b) return;
-  state.quality = b.dataset.q;
-  for (const x of $("qSeg").querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
-});
 // paste and drag & drop
 document.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/")); if (f) setAttach(f); });
 let dragDepth = 0;
