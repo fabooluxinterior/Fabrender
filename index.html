@@ -322,8 +322,9 @@ select.mini option{background:#1a1411}
         <div class="opts">
           <span>Quality</span>
           <div class="seg" id="qSeg" role="group" aria-label="Quality">
-            <button type="button" data-q="4k" aria-pressed="true">4K detail</button>
-            <button type="button" data-q="standard" aria-pressed="false">Fast draft</button>
+            <button type="button" data-q="4k_fast" aria-pressed="true" title="Quick 4K: sharp, keeps every shape. About 1-2 minutes">4K fast</button>
+            <button type="button" data-q="4k" aria-pressed="false" title="Maximum detail: redraws fine texture tile by tile. Slowest">4K max detail</button>
+            <button type="button" data-q="standard" aria-pressed="false" title="About 1 megapixel, quickest">Draft</button>
           </div>
           <span>Style</span>
           <select id="style" class="mini" aria-label="Design style">
@@ -464,7 +465,7 @@ const state = {
   chats: [],            // newest first
   activeId: null,       // null = blank workspace (a chat is created on the first send)
   attach: null,         // { file }
-  quality: "4k",
+  quality: "4k_fast",
   online: false,
 };
 const active = () => state.chats.find((c) => c.id === state.activeId) || null;
