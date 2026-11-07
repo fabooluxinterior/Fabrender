@@ -522,8 +522,9 @@ function renderHistory() {
 
 function userMsgEl(m) {
   const bubble = h("div", { class: "bubble" });
-  const pins = m.pins || (m.pin ? [m.pin] : []);
-  if (m.kind === "revision") bubble.append(h("div", { class: "tag", text: pins.length > 1 ? `Targeted revision · ${pins.length} spots` : "Targeted revision" }));
+  const allPins = m.pins || (m.pin ? [m.pin] : []);
+  const pins = allPins.filter((p) => !p.whole);        // typed chat changes have no spot to mark
+  if (m.kind === "revision") bubble.append(h("div", { class: "tag", text: !pins.length ? "Change on the last render" : pins.length > 1 ? `Targeted revision · ${pins.length} spots` : "Targeted revision" }));
   if (m.image) {
     const t = h("div", { class: "thumb" }, h("img", { src: urlFor(m.image), alt: "Attached image" }));
     pins.forEach((p, i) => {
@@ -590,6 +591,7 @@ function renderStream(scrollToEnd) {
   col.classList.toggle("hidden", !has);
   col.replaceChildren();
   if (has) for (const m of chat.messages) col.append(msgEl(m));
+  updateSend();
   if (scrollToEnd !== false) requestAnimationFrame(() => { $("stream").scrollTop = $("stream").scrollHeight; });
 }
 
@@ -598,6 +600,7 @@ function refreshMsg(m, scroll) {
   const old = $("col").querySelector(`[data-id="${m.id}"]`);
   if (!old) return;
   old.replaceWith(msgEl(m));
+  updateSend();
   if (scroll) requestAnimationFrame(() => { $("stream").scrollTop = $("stream").scrollHeight; });
 }
 // Cheap live update while polling: only text and the progress bar change. The bar never moves backwards.
@@ -649,14 +652,39 @@ function setAttach(file) {
   $("prompt").focus();
 }
 function clearAttach() { state.attach = null; $("chip").classList.add("hidden"); $("file").value = ""; updateSend(); }
-function updateSend() { $("sendBtn").disabled = !state.attach; }
+
+// The newest finished render in the open chat - typed changes are applied to it.
+function lastRender(chat) {
+  if (!chat) return null;
+  for (let i = chat.messages.length - 1; i >= 0; i--) {
+    const m = chat.messages[i];
+    if (m.role === "ai" && m.status === "done" && m.image) return m;
+  }
+  return null;
+}
+const PLACEHOLDER_NEW = "Add details (optional), e.g. add a floor lamp near the bed…";
+const PLACEHOLDER_EDIT = "Type a change for the last render, e.g. make the base unit shutters glossy…";
+function updateSend() {
+  const canEdit = !!lastRender(active());
+  $("prompt").placeholder = state.attach || !canEdit ? PLACEHOLDER_NEW : PLACEHOLDER_EDIT;
+  $("sendBtn").disabled = !(state.attach || (canEdit && $("prompt").value.trim()));
+}
 function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 160) + "px"; }
 
 async function send() {
-  if (!state.attach) { toast("Attach a sketch or clay render first."); return; }
-  const file = state.attach.file, text = $("prompt").value.trim();
-  clearAttach(); $("prompt").value = ""; autosize();
-  await startRender(file, text);
+  const text = $("prompt").value.trim();
+  if (state.attach) {                         // new image -> new render
+    const file = state.attach.file;
+    clearAttach(); $("prompt").value = ""; autosize();
+    await startRender(file, text);
+    return;
+  }
+  const chat = active(), last = lastRender(chat);
+  if (!last) { toast("Attach a sketch or clay render first."); return; }
+  if (!text) { toast("Type the change you want, e.g. make the wall unit shutters glossy."); return; }
+  $("prompt").value = ""; autosize(); updateSend();
+  // No image attached -> apply the typed change to the last render only
+  await startRevision(chat, last, [{ x: 0.5, y: 0.5, text, whole: true }]);
 }
 
 /* ============================================================
@@ -1067,8 +1095,8 @@ $("attachBtn").addEventListener("click", () => $("file").click());
 $("file").addEventListener("change", (e) => setAttach(e.target.files[0]));
 $("chip").querySelector("button").addEventListener("click", clearAttach);
 $("sendBtn").addEventListener("click", send);
-$("prompt").addEventListener("input", autosize);
-$("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!$("sendBtn").disabled) send(); else toast("Attach a sketch or clay render first."); } });
+$("prompt").addEventListener("input", () => { autosize(); updateSend(); });
+$("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!$("sendBtn").disabled) send(); else toast(lastRender(active()) ? "Type the change you want, e.g. make the wall unit shutters glossy." : "Attach a sketch or clay render first."); } });
 $("style").addEventListener("change", () => {});
 // paste and drag & drop
 document.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/")); if (f) setAttach(f); });
