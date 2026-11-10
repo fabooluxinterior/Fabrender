@@ -1,0 +1,871 @@
+{
+ "version": "2026-11-10",
+ "materials": [
+  {
+   "keys": [
+    "armani grey",
+    "armani grey marble"
+   ],
+   "look": "armani grey marble: deep warm grey stone with fine white veins, polished"
+  },
+  {
+   "keys": [
+    "spider marble",
+    "black spider marble"
+   ],
+   "look": "spider marble: black stone with a web of thin white and gold veins, polished"
+  },
+  {
+   "keys": [
+    "satvario",
+    "satuario"
+   ],
+   "look": "white statuario marble: bright white stone with soft grey veins, polished with soft reflections"
+  },
+  {
+   "keys": [
+    "kota stone",
+    "kota"
+   ],
+   "look": "kota stone: blue-grey limestone with subtle tonal patches, honed matte"
+  },
+  {
+   "keys": [
+    "sintered stone",
+    "porcelain slab",
+    "large slab"
+   ],
+   "look": "sintered stone slab: large seamless slab with realistic printed stone veining, satin polish"
+  },
+  {
+   "keys": [
+    "glass mosaic",
+    "mosaic"
+   ],
+   "look": "mosaic tiles: small square tiles with fine grout lines and slight colour variation"
+  },
+  {
+   "keys": [
+    "terracotta",
+    "clay tiles"
+   ],
+   "look": "terracotta tiles: warm orange-red baked clay with soft handmade variation, matte"
+  },
+  {
+   "keys": [
+    "glass blocks",
+    "glass bricks"
+   ],
+   "look": "glass blocks: thick translucent blocks with wavy distortion and bright edges"
+  },
+  {
+   "keys": [
+    "chevron"
+   ],
+   "look": "chevron pattern: crisp V-shaped planks meeting in a precise zig-zag"
+  },
+  {
+   "keys": [
+    "wpc",
+    "wpc panel",
+    "pvc panel",
+    "pvc panels"
+   ],
+   "look": "wood-plastic composite panel: uniform printed wood look with fine grooves, matte"
+  },
+  {
+   "keys": [
+    "fluted acrylic"
+   ],
+   "look": "fluted acrylic: glossy ribbed panel with bright highlights on every rib"
+  },
+  {
+   "keys": [
+    "perforated metal",
+    "perforated sheet",
+    "metal mesh",
+    "mesh"
+   ],
+   "look": "perforated metal: thin sheet with an even grid of small holes, light passing through"
+  },
+  {
+   "keys": [
+    "acoustic panel",
+    "felt panel",
+    "felt"
+   ],
+   "look": "acoustic felt panel: soft dense felt with fine fibres, completely matte"
+  },
+  {
+   "keys": [
+    "cork"
+   ],
+   "look": "cork: warm tan granular surface with fine speckles, matte"
+  },
+  {
+   "keys": [
+    "bamboo"
+   ],
+   "look": "bamboo: pale golden canes with visible nodes, satin finish"
+  },
+  {
+   "keys": [
+    "wool carpet",
+    "carpet",
+    "rug",
+    "jute rug"
+   ],
+   "look": "rug: thick woven pile with visible fibres and soft shadowed texture"
+  },
+  {
+   "keys": [
+    "sheer curtain",
+    "sheer",
+    "sheers"
+   ],
+   "look": "sheer curtain: thin translucent white voile, daylight glowing through softly"
+  },
+  {
+   "keys": [
+    "blackout curtain",
+    "blackout"
+   ],
+   "look": "blackout curtain: heavy opaque fabric with soft deep folds"
+  },
+  {
+   "keys": [
+    "linen curtain",
+    "linen curtains"
+   ],
+   "look": "linen curtains: natural woven linen with relaxed soft folds, light filtering through"
+  },
+  {
+   "keys": [
+    "oxidised",
+    "patina",
+    "corten"
+   ],
+   "look": "oxidised metal: rusty brown-orange patina with natural mottled texture"
+  },
+  {
+   "keys": [
+    "gunmetal",
+    "gun metal"
+   ],
+   "look": "gunmetal: dark grey metal with a soft brushed sheen"
+  },
+  {
+   "keys": [
+    "nickel",
+    "brushed nickel"
+   ],
+   "look": "brushed nickel: soft silver-grey metal with fine brushed lines"
+  },
+  {
+   "keys": [
+    "onyx white",
+    "white onyx"
+   ],
+   "look": "white onyx: translucent milky stone with soft creamy bands, glowing gently"
+  },
+  {
+   "keys": [
+    "fabric panel",
+    "upholstered panel",
+    "cushioned panel"
+   ],
+   "look": "upholstered wall panel: padded fabric panels with soft rounded edges and fine weave"
+  },
+  {
+   "keys": [
+    "glossy tiles",
+    "high gloss tiles"
+   ],
+   "look": "glossy porcelain tiles: mirror-like polished tiles with fine grout lines"
+  },
+  {
+   "keys": [
+    "bronze mirror",
+    "bronze tint mirror",
+    "bronze tinted mirror"
+   ],
+   "look": "bronze-tinted mirror: reflects the room clearly but in a warm bronze-brown tone, slightly darker than a clear mirror"
+  },
+  {
+   "keys": [
+    "grey mirror",
+    "smoked mirror",
+    "smoke mirror",
+    "grey tint mirror",
+    "black mirror",
+    "tinted mirror"
+   ],
+   "look": "smoked grey mirror: reflects the room clearly in a cool dark grey tone"
+  },
+  {
+   "keys": [
+    "gold mirror",
+    "golden mirror",
+    "champagne mirror"
+   ],
+   "look": "gold-tinted mirror: clear reflections with a soft warm golden tone"
+  },
+  {
+   "keys": [
+    "antique mirror",
+    "vintage mirror"
+   ],
+   "look": "antique mirror: soft hazy reflections with subtle smoky mottling and aged patches"
+  },
+  {
+   "keys": [
+    "mirror",
+    "clear mirror",
+    "silver mirror"
+   ],
+   "look": "real silver mirror: sharp, true-colour reflections of the room, perfectly flat, thin bevelled edge"
+  },
+  {
+   "keys": [
+    "bronze glass",
+    "bronze tint",
+    "bronze tinted glass",
+    "bronze tint glass"
+   ],
+   "look": "bronze-tinted glass: see-through with a warm bronze tint and soft reflections"
+  },
+  {
+   "keys": [
+    "grey glass",
+    "grey tint",
+    "smoked glass",
+    "smoke glass",
+    "grey tinted glass",
+    "black glass",
+    "tinted glass",
+    "tint"
+   ],
+   "look": "grey-tinted smoked glass: see-through but darker, cool grey tint, soft reflections"
+  },
+  {
+   "keys": [
+    "fluted glass",
+    "reeded glass",
+    "ribbed glass"
+   ],
+   "look": "fluted reeded glass: vertical ribs that blur and distort what is behind it, bright edges on each rib"
+  },
+  {
+   "keys": [
+    "frosted glass",
+    "etched glass",
+    "acid glass",
+    "sandblasted glass"
+   ],
+   "look": "frosted glass: translucent milky white, softly diffuses light, nothing behind it is sharp"
+  },
+  {
+   "keys": [
+    "back painted glass",
+    "lacquered glass",
+    "lacobel",
+    "painted glass"
+   ],
+   "look": "back-painted lacquered glass: solid colour behind glass, deep glassy shine and mirror-like reflections"
+  },
+  {
+   "keys": [
+    "clear glass",
+    "glass"
+   ],
+   "look": "clear glass: fully transparent with faint reflections and slightly green-tinted edges"
+  },
+  {
+   "keys": [
+    "statuario",
+    "white marble",
+    "italian marble"
+   ],
+   "look": "white statuario marble: bright white stone with soft grey veins, polished with soft reflections"
+  },
+  {
+   "keys": [
+    "calacatta",
+    "calacatta gold"
+   ],
+   "look": "calacatta marble: warm white stone with bold grey and gold veins, polished"
+  },
+  {
+   "keys": [
+    "carrara"
+   ],
+   "look": "carrara marble: light grey-white stone with fine feathery grey veining"
+  },
+  {
+   "keys": [
+    "emperador",
+    "brown marble",
+    "dark emperador"
+   ],
+   "look": "emperador marble: rich brown stone with fine lighter beige-gold veins, polished"
+  },
+  {
+   "keys": [
+    "nero marquina",
+    "black marble"
+   ],
+   "look": "black nero marquina marble: deep black stone with crisp white veins, polished"
+  },
+  {
+   "keys": [
+    "green marble",
+    "verde"
+   ],
+   "look": "green marble: deep green stone with white and light green veins, polished"
+  },
+  {
+   "keys": [
+    "beige marble",
+    "botticino",
+    "crema marfil"
+   ],
+   "look": "beige marble: warm cream-beige stone with soft subtle veining, polished"
+  },
+  {
+   "keys": [
+    "onyx",
+    "backlit onyx"
+   ],
+   "look": "onyx: translucent banded stone with flowing layered bands, glowing softly where light passes through"
+  },
+  {
+   "keys": [
+    "travertine"
+   ],
+   "look": "travertine: warm beige stone with horizontal bands and small natural pores, honed matte"
+  },
+  {
+   "keys": [
+    "granite",
+    "black granite",
+    "absolute black"
+   ],
+   "look": "granite: speckled crystalline stone with fine mineral flecks, polished"
+  },
+  {
+   "keys": [
+    "quartz",
+    "quartz stone",
+    "corian",
+    "solid surface"
+   ],
+   "look": "engineered quartz: uniform fine-speckled stone, seamless, smooth satin polish"
+  },
+  {
+   "keys": [
+    "terrazzo"
+   ],
+   "look": "terrazzo: smooth base with scattered marble chips, honed"
+  },
+  {
+   "keys": [
+    "sandstone",
+    "jaisalmer",
+    "dholpur"
+   ],
+   "look": "sandstone: warm sandy stone with fine grain, matte"
+  },
+  {
+   "keys": [
+    "slate"
+   ],
+   "look": "slate: dark layered stone with a natural cleft surface, matte"
+  },
+  {
+   "keys": [
+    "marble",
+    "stone"
+   ],
+   "look": "real polished marble: natural stone with soft irregular veining and soft reflections"
+  },
+  {
+   "keys": [
+    "walnut",
+    "american walnut"
+   ],
+   "look": "walnut wood: rich dark chocolate-brown with flowing grain, satin finish"
+  },
+  {
+   "keys": [
+    "teak",
+    "burma teak"
+   ],
+   "look": "teak wood: warm golden-brown with straight grain, satin finish"
+  },
+  {
+   "keys": [
+    "oak",
+    "white oak",
+    "european oak"
+   ],
+   "look": "oak wood: light honey-beige with clear open grain, satin finish"
+  },
+  {
+   "keys": [
+    "ash wood",
+    "ash"
+   ],
+   "look": "ash wood: pale cream wood with bold straight grain, matte"
+  },
+  {
+   "keys": [
+    "rosewood",
+    "sheesham"
+   ],
+   "look": "rosewood: deep reddish-brown wood with dark streaks, satin finish"
+  },
+  {
+   "keys": [
+    "smoked oak",
+    "fumed oak"
+   ],
+   "look": "smoked oak: grey-brown wood with clear grain, matte"
+  },
+  {
+   "keys": [
+    "fluted wood",
+    "wooden flutes",
+    "wooden fluted",
+    "fluted panel",
+    "fluted"
+   ],
+   "look": "fluted panel: crisp evenly spaced vertical grooves, each with its own soft shading"
+  },
+  {
+   "keys": [
+    "louvers",
+    "louvres",
+    "slats",
+    "wooden slats",
+    "rafters"
+   ],
+   "look": "wooden slats: evenly spaced vertical battens with shadow gaps between them"
+  },
+  {
+   "keys": [
+    "cane",
+    "rattan",
+    "wicker",
+    "jaali",
+    "jali"
+   ],
+   "look": "woven cane: natural open weave in light straw colour, light passes through the holes"
+  },
+  {
+   "keys": [
+    "veneer",
+    "wood veneer",
+    "wooden",
+    "wood",
+    "timber",
+    "plywood"
+   ],
+   "look": "real wood veneer: natural visible grain and pores, satin finish"
+  },
+  {
+   "keys": [
+    "high gloss laminate",
+    "high gloss",
+    "acrylic",
+    "glossy acrylic"
+   ],
+   "look": "high-gloss acrylic: perfectly smooth, deep mirror-like shine with crisp reflections"
+  },
+  {
+   "keys": [
+    "pu lacquer",
+    "pu paint",
+    "lacquer",
+    "duco paint",
+    "duco"
+   ],
+   "look": "PU lacquer paint: smooth seamless painted surface, no grain"
+  },
+  {
+   "keys": [
+    "membrane",
+    "pvc membrane"
+   ],
+   "look": "membrane finish: smooth, seamless, softly rounded edges, satin"
+  },
+  {
+   "keys": [
+    "textured laminate",
+    "wood grain laminate"
+   ],
+   "look": "textured laminate: printed pattern with fine tactile texture, matte"
+  },
+  {
+   "keys": [
+    "laminate",
+    "suede laminate",
+    "anti fingerprint",
+    "fingerprint free"
+   ],
+   "look": "laminate: smooth flat board, uniform colour, fine micro-texture"
+  },
+  {
+   "keys": [
+    "rose gold"
+   ],
+   "look": "rose gold metal: warm pinkish-gold, brushed, soft metallic reflections"
+  },
+  {
+   "keys": [
+    "champagne gold",
+    "champagne"
+   ],
+   "look": "champagne gold metal: pale soft gold, brushed satin metallic sheen"
+  },
+  {
+   "keys": [
+    "antique brass",
+    "antique gold"
+   ],
+   "look": "antique brass: darkened aged gold with soft worn highlights"
+  },
+  {
+   "keys": [
+    "brass",
+    "gold",
+    "golden",
+    "brushed gold",
+    "pvd gold"
+   ],
+   "look": "brushed brass: warm gold metal with fine brushed lines and soft metallic reflections"
+  },
+  {
+   "keys": [
+    "copper"
+   ],
+   "look": "copper: warm reddish metal with soft metallic reflections"
+  },
+  {
+   "keys": [
+    "black metal",
+    "matte black",
+    "powder coated",
+    "black powder coat"
+   ],
+   "look": "matte black powder-coated metal: deep black, dull, no shine"
+  },
+  {
+   "keys": [
+    "chrome",
+    "mirror steel"
+   ],
+   "look": "polished chrome: bright mirror-like metal with sharp reflections"
+  },
+  {
+   "keys": [
+    "stainless steel",
+    "steel",
+    "brushed steel",
+    "aluminium",
+    "aluminum",
+    "metal"
+   ],
+   "look": "brushed stainless steel: cool grey metal with fine brushed lines and soft reflections"
+  },
+  {
+   "keys": [
+    "velvet"
+   ],
+   "look": "velvet: soft dense pile with rich colour, sheen that shifts on the curves"
+  },
+  {
+   "keys": [
+    "boucle"
+   ],
+   "look": "boucle: nubby looped textured fabric, soft and cosy"
+  },
+  {
+   "keys": [
+    "linen",
+    "cotton"
+   ],
+   "look": "linen fabric: visible natural woven slubs, soft creases, matte"
+  },
+  {
+   "keys": [
+    "suede",
+    "nubuck"
+   ],
+   "look": "suede: soft brushed velvety leather, matte"
+  },
+  {
+   "keys": [
+    "leatherette",
+    "rexine",
+    "faux leather",
+    "pu leather"
+   ],
+   "look": "leatherette: smooth even grain, soft satin sheen"
+  },
+  {
+   "keys": [
+    "leather",
+    "genuine leather"
+   ],
+   "look": "real leather: natural pebbled grain, soft creases, gentle satin sheen"
+  },
+  {
+   "keys": [
+    "fabric",
+    "upholstery"
+   ],
+   "look": "upholstery fabric: fine visible weave, soft and matte"
+  },
+  {
+   "keys": [
+    "wooden flooring",
+    "wood flooring",
+    "engineered wood",
+    "laminate flooring",
+    "parquet",
+    "herringbone"
+   ],
+   "look": "wooden flooring: real planks with natural grain and fine joints, satin finish"
+  },
+  {
+   "keys": [
+    "vitrified",
+    "vitrified tiles",
+    "porcelain tiles",
+    "tiles",
+    "tile"
+   ],
+   "look": "porcelain tiles: large smooth tiles with fine straight grout lines"
+  },
+  {
+   "keys": [
+    "subway tiles",
+    "subway tile"
+   ],
+   "look": "subway tiles: small glossy rectangles with crisp grout lines"
+  },
+  {
+   "keys": [
+    "zellige"
+   ],
+   "look": "zellige tiles: handmade glossy tiles with uneven surfaces and colour variation"
+  },
+  {
+   "keys": [
+    "microcement",
+    "concrete",
+    "cement finish"
+   ],
+   "look": "microcement: smooth seamless surface with subtle trowel marks, matte"
+  },
+  {
+   "keys": [
+    "wallpaper"
+   ],
+   "look": "wallpaper: printed pattern with fine paper texture"
+  },
+  {
+   "keys": [
+    "texture paint",
+    "textured paint",
+    "stucco",
+    "limewash",
+    "venetian plaster"
+   ],
+   "look": "textured plaster: soft hand-applied texture with gentle tone variation, matte"
+  },
+  {
+   "keys": [
+    "paint",
+    "emulsion",
+    "plaster"
+   ],
+   "look": "painted plaster: smooth even paint, matte"
+  },
+  {
+   "keys": [
+    "cladding",
+    "stone cladding",
+    "brick",
+    "exposed brick"
+   ],
+   "look": "stone cladding: real stone pieces with depth, natural colour variation and shadowed joints"
+  }
+ ],
+ "typos": {
+  "clr": "colour",
+  "colr": "colour",
+  "color": "colour",
+  "colours": "colour",
+  "col": "colour",
+  "drk": "dark",
+  "dk": "dark",
+  "lite": "light",
+  "lt": "light",
+  "lyt": "light",
+  "lght": "light",
+  "w/o": "without",
+  "wo": "without",
+  "w/": "with",
+  "wid": "with",
+  "wit": "with",
+  "n": "and",
+  "nd": "and",
+  "&": "and",
+  "pls": "",
+  "plz": "",
+  "please": "",
+  "kindly": "",
+  "thx": "",
+  "thnx": "",
+  "u": "you",
+  "r": "are",
+  "abt": "about",
+  "mor": "more",
+  "bit": "bit",
+  "gry": "grey",
+  "gray": "grey",
+  "blk": "black",
+  "wht": "white",
+  "brwn": "brown",
+  "bge": "beige",
+  "ss": "stainless steel",
+  "sst": "stainless steel",
+  "ms": "mild steel",
+  "pu": "pu lacquer",
+  "hpl": "laminate",
+  "lam": "laminate",
+  "lamination": "laminate",
+  "sunmica": "laminate",
+  "formica": "laminate",
+  "merino": "laminate",
+  "duco": "duco paint",
+  "acp": "aluminium panel",
+  "rm": "room",
+  "flr": "floor",
+  "clg": "ceiling",
+  "wal": "wall",
+  "shuter": "shutter",
+  "shutr": "shutter",
+  "shuters": "shutters",
+  "wardrop": "wardrobe",
+  "wadrobe": "wardrobe",
+  "cupboard": "cabinet",
+  "almirah": "wardrobe",
+  "almira": "wardrobe",
+  "tv unit": "tv unit",
+  "matt": "matte",
+  "mat": "matte",
+  "glosy": "glossy",
+  "glossi": "glossy",
+  "glosi": "glossy",
+  "gloss": "glossy",
+  "shiny": "glossy",
+  "shinny": "glossy",
+  "shyni": "glossy",
+  "highgloss": "high gloss",
+  "hi gloss": "high gloss",
+  "hi-gloss": "high gloss",
+  "marbel": "marble",
+  "marbal": "marble",
+  "marbl": "marble",
+  "marbels": "marble",
+  "mirrer": "mirror",
+  "miror": "mirror",
+  "mirrior": "mirror",
+  "mirrorr": "mirror",
+  "venner": "veneer",
+  "vener": "veneer",
+  "venier": "veneer",
+  "veener": "veneer",
+  "lamnate": "laminate",
+  "laminat": "laminate",
+  "lamenate": "laminate",
+  "tinted": "tint",
+  "tinte": "tint",
+  "tnt": "tint",
+  "glas": "glass",
+  "glss": "glass",
+  "woden": "wooden",
+  "wodden": "wooden",
+  "wud": "wood",
+  "wod": "wood",
+  "lether": "leather",
+  "lethar": "leather",
+  "lethr": "leather",
+  "leatherite": "leatherette",
+  "velvat": "velvet",
+  "velevet": "velvet",
+  "fabrik": "fabric",
+  "febric": "fabric",
+  "granit": "granite",
+  "granate": "granite",
+  "quarts": "quartz",
+  "kwartz": "quartz",
+  "onix": "onyx",
+  "travertin": "travertine",
+  "terazzo": "terrazzo",
+  "teraso": "terrazzo",
+  "flutted": "fluted",
+  "fluting": "fluted",
+  "flute": "fluted",
+  "fluetd": "fluted",
+  "brass.": "brass",
+  "goldan": "golden",
+  "rosegold": "rose gold",
+  "champaign": "champagne",
+  "statuerio": "statuario",
+  "statuario": "statuario",
+  "calacata": "calacatta",
+  "carara": "carrara",
+  "emperdor": "emperador",
+  "imperador": "emperador",
+  "boucl": "boucle",
+  "bouclé": "boucle",
+  "microcement": "microcement",
+  "micro-cement": "microcement",
+  "wallpapper": "wallpaper",
+  "walpaper": "wallpaper",
+  "textured": "texture",
+  "texure": "texture",
+  "textur": "texture",
+  "finsh": "finish",
+  "finis": "finish",
+  "finsih": "finish",
+  "finshing": "finish",
+  "lighter.": "lighter",
+  "ligher": "lighter",
+  "lighte": "lighter",
+  "darkar": "darker",
+  "darkr": "darker",
+  "brigter": "brighter",
+  "remov": "remove",
+  "remve": "remove",
+  "rmv": "remove",
+  "chnage": "change",
+  "chang": "change",
+  "chnge": "change",
+  "make it": "make it",
+  "armaani": "armani",
+  "sintred": "sintered",
+  "teracotta": "terracotta",
+  "mozaic": "mosaic",
+  "perforate": "perforated",
+  "acustic": "acoustic",
+  "curtian": "curtain",
+  "curtan": "curtain",
+  "nikel": "nickel",
+  "gunmettal": "gunmetal",
+  "chevran": "chevron"
+ }
+}
