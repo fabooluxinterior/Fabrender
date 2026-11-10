@@ -153,6 +153,9 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:12p
 .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:13px}
 .meta b{color:var(--text);font-weight:500}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
+.light-acts{margin-top:8px;align-items:center}
+.light-acts .muted{color:var(--muted);font-size:13px;margin-right:2px}
+.light-acts .btn{padding:5px 12px;font-size:13px}
 .btn{
   display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:11px;font-size:13.5px;font-weight:500;
   background:var(--glass-2);border:1px solid var(--line);transition:background .18s,border-color .18s,transform .18s;
@@ -347,6 +350,13 @@ select.mini option{background:#1a1411}
             <option value="luxury">Luxury</option>
             <option value="japandi">Japandi</option>
             <option value="classic">Classic</option>
+          </select>
+          <span>Lighting</span>
+          <select id="lighting" class="mini" aria-label="Lighting">
+            <option value="auto" selected>Auto</option>
+            <option value="day">Day</option>
+            <option value="evening">Evening</option>
+            <option value="night">Night</option>
           </select>
         </div>
       </div>
@@ -605,6 +615,13 @@ function aiMsgEl(m) {
     body.append(h("div", { class: "actions" },
       h("button", { class: "btn primary", type: "button", text: "Open & revise", onclick: () => openLightbox(m) }),
       h("button", { class: "btn", type: "button", text: "Download PNG", onclick: (e) => downloadRender(m, e.currentTarget) })));
+    // One-click time of day: re-lights THIS render (same design, only the light changes)
+    const relight = (txt) => () => { const c = active(); if (c) startRevision(c, m, [{ x: 0.5, y: 0.5, text: txt, whole: true }]); };
+    body.append(h("div", { class: "actions light-acts" },
+      h("span", { class: "muted", text: "Lighting:" }),
+      h("button", { class: "btn", type: "button", text: "Day", title: "Bright natural daylight", onclick: relight("day view with natural daylight") }),
+      h("button", { class: "btn", type: "button", text: "Evening", title: "Golden-hour sun with the lights on", onclick: relight("evening view, golden hour") }),
+      h("button", { class: "btn", type: "button", text: "Night", title: "Night with every interior light on", onclick: relight("night view with all lights on") })));
   }
   return h("div", { class: "msg ai", "data-id": m.id }, h("div", { class: "avatar", html: null }, ...[]), body);
 }
@@ -786,7 +803,7 @@ async function startRender(file, text, reuse) {
   let um, am;
   if (reuse) { um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Processing render request…"; }
   else {
-    um = { id: uid(), role: "user", kind: "render", text, image: file, style: $("style").value, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "render", text, image: file, style: $("style").value, lighting: $("lighting").value, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "render", status: "loading", label: "Processing render request…", aspect: await dimsOf(file), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -797,6 +814,7 @@ async function startRender(file, text, reuse) {
     fd.append("file", um.image, file.name || "upload.png");
     fd.append("style", um.style || "modern");
     fd.append("extra_prompt", um.text || "");
+    fd.append("lighting", um.lighting || "auto");
     const first = await postForm("/render", fd);
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
