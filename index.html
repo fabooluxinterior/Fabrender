@@ -748,7 +748,8 @@ async function pollJob(jobId, m) {
     }
     if (job.status === "done") return job;
     if (job.status === "error") throw new Error(job.error || "Render failed.");
-    if (job.status === "queued") setLive(m, job.pending > 1 ? `Waiting for the GPU… (${job.pending} in the queue)` : "Waiting for the GPU…", 4);
+    if (job.status === "queued" && job.label) setLive(m, job.label, 4);    // e.g. "Finding what to change…"
+    else if (job.status === "queued") setLive(m, job.pending > 1 ? `Waiting for the GPU… (${job.pending} in the queue)` : "Waiting for the GPU…", 4);
     else if (job.label) setLive(m, job.label, job.progress);
     else if (job.progress > 0) setLive(m, `Rendering… ${job.progress}%`, job.progress);
     else setLive(m, "Loading models…", 4);
