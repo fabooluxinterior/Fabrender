@@ -303,7 +303,6 @@ select.mini option{background:#1a1411}
     <button id="newChat" type="button"><span class="plus">+</span> New Chat</button>
     <div class="side-label">History</div>
     <ul id="history" role="list"></ul>
-    <button id="codeBtn" type="button">🔑 Device access</button>
   </aside>
 
   <!-- ================= Main ================= -->
@@ -1164,7 +1163,6 @@ async function saveCode(e) {
 }
 $("codeForm").addEventListener("submit", saveCode);
 $("codeCancel").addEventListener("click", closeCodeDialog);
-$("codeBtn").addEventListener("click", () => openCodeDialog());
 
 function closeSidebar() { $("sidebar").classList.remove("open"); }
 $("menuBtn").addEventListener("click", () => $("sidebar").classList.toggle("open"));
