@@ -1,5 +1,5 @@
 {
- "version": "2026-11-10",
+ "version": "2026-11-10b",
  "materials": [
   {
    "keys": [
@@ -189,7 +189,7 @@
     "bronze tint mirror",
     "bronze tinted mirror"
    ],
-   "look": "bronze-tinted mirror: reflects the room clearly but in a warm bronze-brown tone, slightly darker than a clear mirror"
+   "look": "bronze-tinted mirror glass panels: they work as a real mirror and clearly reflect the floor, the wall and the light in front of them, all in a warm bronze-brown tone"
   },
   {
    "keys": [
@@ -200,7 +200,7 @@
     "black mirror",
     "tinted mirror"
    ],
-   "look": "smoked grey mirror: reflects the room clearly in a cool dark grey tone"
+   "look": "smoked grey mirror glass panels: they work as a real mirror and clearly reflect the floor, the wall and the light in front of them, in a dark cool grey tone"
   },
   {
    "keys": [
@@ -208,14 +208,14 @@
     "golden mirror",
     "champagne mirror"
    ],
-   "look": "gold-tinted mirror: clear reflections with a soft warm golden tone"
+   "look": "gold-tinted mirror glass panels: they work as a real mirror and clearly reflect the room in front of them with a soft warm golden tone"
   },
   {
    "keys": [
     "antique mirror",
     "vintage mirror"
    ],
-   "look": "antique mirror: soft hazy reflections with subtle smoky mottling and aged patches"
+   "look": "antique mirror glass panels: they reflect the room softly with smoky mottled patches and aged silvering"
   },
   {
    "keys": [
@@ -223,7 +223,7 @@
     "clear mirror",
     "silver mirror"
    ],
-   "look": "real silver mirror: sharp, true-colour reflections of the room, perfectly flat, thin bevelled edge"
+   "look": "real silver mirror glass: flat and perfectly smooth, clearly reflecting the floor, the wall and the light in front of it in true colour, with a thin bright bevelled edge"
   },
   {
    "keys": [
