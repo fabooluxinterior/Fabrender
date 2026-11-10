@@ -565,8 +565,10 @@ function aiMsgEl(m) {
     if (mt.width) meta.append(h("span", { text: `${mt.width}×${mt.height}px` }));
     if (mt.seconds != null) meta.append(h("span", { text: `${Math.round(mt.seconds)}s on the GPU` }));
     if (mt.edits && mt.edits.length) {
-      const n = mt.edits.length, iso = mt.edits.filter((x) => x.isolated).length;
-      meta.append(h("span", { text: iso === n ? (n > 1 ? `${n} whole objects edited` : "Whole object edited") : `${iso} of ${n} objects outlined` }));
+      const iso = mt.edits.filter((x) => x.isolated), lit = mt.edits.filter((x) => x.lighting);
+      const names = iso.map((x) => x.target).filter(Boolean);
+      if (iso.length) meta.append(h("span", { text: names.length ? `Only changed: ${names.join(", ")}` : (iso.length > 1 ? `${iso.length} objects changed, rest untouched` : "Only the selected object changed") }));
+      if (lit.length) meta.append(h("span", { text: "Lighting changed" }));
     }
     if (meta.children.length) body.append(meta);
     if (mt.notice) body.append(h("div", { class: "note", text: mt.notice }));
@@ -788,7 +790,8 @@ async function startRevision(chat, src, pins, reuse) {
     // Only coordinates are sent (fractions 0..1 of the picture): the point, an optional box and the +/- clicks that
     // refined the outline. The server outlines the object itself, nothing is drawn on the image.
     fd.append("points", JSON.stringify(um.pins.map((p) => ({
-      x: p.x, y: p.y, instruction: p.text, box: p.box || null, include: p.include || [], exclude: p.exclude || [] }))));
+      x: p.x, y: p.y, instruction: p.text, box: p.box || null, include: p.include || [], exclude: p.exclude || [],
+      whole: !!p.whole }))));   // whole = typed in the chat: the server finds the object itself
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
     return fd;
