@@ -202,6 +202,17 @@ select.mini option{background:#1a1411}
 #drop.on{opacity:1}
 #drop div{padding:34px 50px;border:2px dashed var(--accent);border-radius:26px}
 #toasts{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+#codeDlg{position:fixed;inset:0;z-index:60;display:none;place-items:center;padding:16px;background:rgba(5,4,3,.72);backdrop-filter:blur(6px)}
+#codeDlg.on{display:grid}
+#codeDlg .card{width:min(420px,100%);padding:22px;border-radius:20px;background:rgba(24,17,14,.94);border:1px solid var(--line-2);box-shadow:0 24px 70px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px}
+#codeDlg h2{margin:0;font-size:18px}
+#codeDlg p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.5}
+#codeDlg input{width:100%;padding:11px 13px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--line-2);color:var(--text);font-size:15px;outline:0}
+#codeDlg input:focus{border-color:var(--accent)}
+#codeDlg .err{color:#ff9b8a;font-size:13px;min-height:1em}
+#codeDlg .row{display:flex;gap:8px;justify-content:flex-end}
+#codeBtn{margin-top:auto;padding:9px 12px;border-radius:12px;border:1px solid var(--line);color:var(--muted);font-size:13px;text-align:left;transition:.18s}
+#codeBtn:hover{color:var(--text);border-color:var(--line-2);background:var(--glass)}
 .toast{padding:10px 16px;border-radius:12px;background:rgba(30,22,18,.94);border:1px solid var(--line-2);box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:14px;animation:rise .25s var(--ease) both}
 .toast.bad{border-color:rgba(255,93,93,.5);color:#ffb3b3}
 
@@ -292,6 +303,7 @@ select.mini option{background:#1a1411}
     <button id="newChat" type="button"><span class="plus">+</span> New Chat</button>
     <div class="side-label">History</div>
     <ul id="history" role="list"></ul>
+    <button id="codeBtn" type="button">🔑 Device access</button>
   </aside>
 
   <!-- ================= Main ================= -->
@@ -367,6 +379,15 @@ select.mini option{background:#1a1411}
 </div>
 
 <div id="drop"><div>Drop your image to start</div></div>
+<div id="codeDlg" role="dialog" aria-modal="true" aria-labelledby="codeTitle">
+  <form class="card" id="codeForm">
+    <h2 id="codeTitle">Set up this browser</h2>
+    <p>Open the <b>invite link</b> your admin sent you (WhatsApp or email) on this device - that's all, it is set up permanently. Or paste the code below.</p>
+    <input id="codeInput" type="password" autocomplete="current-password" placeholder="Access code (only if you have no link)" aria-label="Access code" required>
+    <div class="err" id="codeErr"></div>
+    <div class="row"><button class="btn" type="button" id="codeCancel">Cancel</button><button class="btn primary" type="submit" id="codeSave">Save</button></div>
+  </form>
+</div>
 <div id="toasts" aria-live="polite"></div>
 
 <script>
@@ -381,7 +402,12 @@ window.addEventListener("error", (e) => {
    Configuration
    ============================================================ */
 const API_BASE = "https://render.everpick.co.in";
-const API_KEY = "my_secure_random_key_123";        // must match API_KEY in the backend .env
+// The access code is NOT stored in this file (the repository is public). Each browser asks for
+// it once and keeps it in localStorage; the backend checks it (API_KEY / API_KEYS in .env).
+const CODE_KEY = "fabrender-access-code";
+let accessCode = "";
+try { accessCode = localStorage.getItem(CODE_KEY) || ""; } catch (_) {}
+function setAccessCode(v) { accessCode = v || ""; try { v ? localStorage.setItem(CODE_KEY, v) : localStorage.removeItem(CODE_KEY); } catch (_) {} }
 const HEALTH_MS = 15000, HEALTH_TIMEOUT_MS = 5000;
 const POLL_MS = 1000, MAX_WAIT_MS = 25 * 60 * 1000, UPLOAD_TIMEOUT_MS = 90 * 1000;
 const SEGMENT_TIMEOUT_MS = 5 * 60 * 1000;      // the first outline downloads and starts the detector
@@ -392,7 +418,7 @@ const MAX_UPLOAD_MB = 15;
    ============================================================ */
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const authHeaders = () => (API_KEY ? { "X-API-Key": API_KEY } : {});
+const authHeaders = () => (accessCode ? { "X-API-Key": accessCode } : {});
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
@@ -429,6 +455,11 @@ function readableError(e) {
   return e.message || "Something went wrong.";
 }
 async function readError(res) {
+  if (res.status === 401) {
+    setAccessCode("");
+    openCodeDialog("This device's access has changed. Open your new invite link, then press Try again.");
+    const err = new Error("This device needs to be set up again - open your invite link, then press Try again."); err.status = 401; return err;
+  }
   let msg = `Request failed (HTTP ${res.status})`;
   try { const d = await res.json(); if (d.detail) msg = typeof d.detail === "string" ? d.detail : JSON.stringify(d.detail); } catch (_) {}
   const err = new Error(msg); err.status = res.status; return err;
@@ -1091,6 +1122,50 @@ document.addEventListener("keydown", (e) => {
 /* ============================================================
    Wiring
    ============================================================ */
+/* ---------- access code dialog ---------- */
+function openCodeDialog(message) {
+  $("codeErr").textContent = message || "";
+  $("codeInput").value = "";
+  $("codeDlg").classList.add("on");
+  setTimeout(() => $("codeInput").focus(), 30);
+}
+// One-time setup: an invite link (…/Fabrender/#invite=CODE) stores the code in this browser
+// and removes it from the address bar. The part after # is never sent to GitHub. Office
+// computers (TRUSTED_IPS on the render PC) need nothing at all.
+async function setupAccess() {
+  const invite = new URLSearchParams(location.hash.slice(1)).get("invite");
+  if (invite) {
+    history.replaceState(null, "", location.pathname + location.search);   // hide it right away
+    try {
+      const r = await fetch(`${API_BASE}/auth/check`, { headers: { "X-API-Key": invite }, cache: "no-store" });
+      if (r.ok) { setAccessCode(invite); toast("This device is set up. Welcome to Fabrender!"); return; }
+      openCodeDialog(r.status === 429 ? "Too many attempts. Try the link again in 15 minutes." : "This invite link is no longer valid. Ask your admin for a new one.");
+    } catch (_) { setAccessCode(invite); toast("Invite saved. The render PC is offline right now."); }
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE}/auth/check`, { headers: authHeaders(), cache: "no-store" });
+    if (r.status === 401) { setAccessCode(""); openCodeDialog(); }
+  } catch (_) { /* render PC offline: nothing to set up yet */ }
+}
+function closeCodeDialog() { $("codeDlg").classList.remove("on"); }
+async function saveCode(e) {
+  e.preventDefault();
+  const v = $("codeInput").value.trim();
+  if (!v) return;
+  $("codeSave").disabled = true; $("codeErr").textContent = "Checking…";
+  try {
+    const r = await fetch(`${API_BASE}/auth/check`, { headers: { "X-API-Key": v }, cache: "no-store" });
+    if (r.ok) { setAccessCode(v); closeCodeDialog(); toast("Access code saved."); }
+    else if (r.status === 429) $("codeErr").textContent = "Too many wrong codes. Try again in 15 minutes.";
+    else $("codeErr").textContent = "That code is not correct.";
+  } catch (_) { $("codeErr").textContent = "Could not reach the render PC to check the code."; }
+  finally { $("codeSave").disabled = false; }
+}
+$("codeForm").addEventListener("submit", saveCode);
+$("codeCancel").addEventListener("click", closeCodeDialog);
+$("codeBtn").addEventListener("click", () => openCodeDialog());
+
 function closeSidebar() { $("sidebar").classList.remove("open"); }
 $("menuBtn").addEventListener("click", () => $("sidebar").classList.toggle("open"));
 $("newChat").addEventListener("click", newChat);
@@ -1118,6 +1193,7 @@ window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("d
   for (const c of state.chats) for (const m of c.messages) if (m.role === "ai" && m.status === "loading") { m.status = "error"; m.error = "The page was closed while this was rendering. Press Try again."; }
   renderHistory(); renderStream();
   checkStatus(); setInterval(checkStatus, HEALTH_MS);
+  setupAccess();
 })();
 </script>
 </body>
