@@ -160,6 +160,10 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:12p
 .lam .it:hover{border-color:var(--accent)}
 .lam .sw{width:26px;height:26px;border-radius:6px;flex:none;border:1px solid rgba(255,255,255,.2)}
 .lam .it small{display:block;color:var(--muted);font-size:11px}
+.saveroom{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.saveroom input{padding:6px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:inherit;font:inherit;font-size:13px;min-width:180px}
+.roomnote{font-size:12.5px;color:var(--muted)}
+.roomnote .chip{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin:0 3px 0 6px;border:1px solid rgba(255,255,255,.25)}
 #lamPop{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:50;width:min(640px,calc(100vw - 32px))}
 .ask{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--line, rgba(255,255,255,.12));border-radius:14px;max-width:640px}
 .ask .q{font-size:14.5px;font-weight:600}
@@ -376,6 +380,10 @@ select.mini option{background:#1a1411}
             <option value="night">Night</option>
           </select>
           <button id="lamBtn" class="btn opt" type="button" title="Pick a laminate from the Faboolux library">Laminates</button>
+          <span>Room</span>
+          <select id="roomSel" class="mini" aria-label="Continue a saved room" title="Continue a saved room: same finishes, colours and light">
+            <option value="" selected>New room</option>
+          </select>
         </div>
       </div>
     </footer>
@@ -435,6 +443,15 @@ const CODE_KEY = "fabrender-access-code";
 let accessCode = "";
 try { accessCode = localStorage.getItem(CODE_KEY) || ""; } catch (_) {}
 function setAccessCode(v) { accessCode = v || ""; try { v ? localStorage.setItem(CODE_KEY, v) : localStorage.removeItem(CODE_KEY); } catch (_) {} }
+// Saved rooms belong to THIS browser: a random private key, kept here and sent with room requests
+const ROOM_OWNER_KEY = "fabrender-room-owner";
+let roomOwner = "";
+try { roomOwner = localStorage.getItem(ROOM_OWNER_KEY) || ""; } catch (_) {}
+if (!/^[A-Za-z0-9_-]{16,64}$/.test(roomOwner)) {
+  const a = new Uint8Array(16); (self.crypto || window.crypto).getRandomValues(a);
+  roomOwner = Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
+  try { localStorage.setItem(ROOM_OWNER_KEY, roomOwner); } catch (_) {}
+}
 const HEALTH_MS = 15000, HEALTH_TIMEOUT_MS = 5000;
 const POLL_MS = 1000, MAX_WAIT_MS = 25 * 60 * 1000, UPLOAD_TIMEOUT_MS = 90 * 1000;
 const SEGMENT_TIMEOUT_MS = 5 * 60 * 1000;      // the first outline downloads and starts the detector
@@ -652,7 +669,10 @@ function aiMsgEl(m) {
     if (m.finishAsk && m.finishAsk.zones && m.finishAsk.zones.length) body.append(finishCard(m));
     body.append(h("div", { class: "actions" },
       h("button", { class: "btn primary", type: "button", text: "Open & revise", onclick: () => openLightbox(m) }),
-      h("button", { class: "btn", type: "button", text: "Download PNG", onclick: (e) => downloadRender(m, e.currentTarget) })));
+      h("button", { class: "btn", type: "button", text: "Download PNG", onclick: (e) => downloadRender(m, e.currentTarget) }),
+      m.jobId ? h("button", { class: "btn", type: "button", text: "Save as room", title: "Keep this view's finishes, colours and light for the other views of this room",
+        onclick: () => roomBox.replaceChildren(saveRoomForm(m, roomBox)) }) : null));
+    const roomBox = h("div", {}); body.append(roomBox);
     // One-click time of day: re-lights THIS render (same design, only the light changes)
     const kSel = h("select", { class: "mini", "aria-label": "Light colour", title: "Colour of the interior lights" },
       h("option", { value: "3000K", text: "3000K warm" }), h("option", { value: "4000K", text: "4000K neutral" }),
@@ -962,12 +982,64 @@ async function askFinishes(um, am, chat) {
   return { token: d.token, finishes: picked };
 }
 
+/* Rooms: "Save as room" after a render you like; "Room: <name>" on the next upload continues it
+   (same finishes and laminates, same colours, same light). Stored on the render PC, private to this browser. */
+const roomState = { list: [] };
+async function loadRooms() {
+  try {
+    const r = await fetch(`${API_BASE}/rooms?owner=${encodeURIComponent(roomOwner)}`, { headers: authHeaders(), cache: "no-store" });
+    if (!r.ok) return;
+    roomState.list = (await r.json()).rooms || [];
+  } catch (_) { return; }
+  const sel = $("roomSel"); if (!sel) return;
+  const cur = sel.value;
+  sel.replaceChildren(h("option", { value: "", text: "New room" }),
+    ...roomState.list.map((rm) => h("option", { value: rm.id, text: rm.name })));
+  if (roomState.list.some((rm) => rm.id === cur)) sel.value = cur;
+}
+const roomById = (id) => roomState.list.find((rm) => rm.id === id) || null;
+function roomSummary(rm) {
+  const light = rm.light_mode && rm.light_mode !== "auto" ? `${rm.light_mode}${rm.kelvin ? " " + rm.kelvin + "K" : ""}` : "auto light";
+  const el = h("div", { class: "roomnote" }, `Room “${rm.name}”: ${light}; ${rm.changes.length} finish change${rm.changes.length === 1 ? "" : "s"}`);
+  rm.colours.forEach((c) => { const s = h("span", { class: "chip" }); s.style.background = c.chip; el.append(s, c.name); });
+  return el;
+}
+function saveRoomForm(m, holder) {
+  const input = h("input", { type: "text", maxlength: "60", placeholder: "Room name, e.g. Kitchen – Sharma flat" });
+  const go = async () => {
+    const name = input.value.trim(); if (!name) { input.focus(); return; }
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const fd = new FormData(); fd.append("owner", roomOwner); fd.append("name", name); fd.append("job_id", m.jobId);
+      const rm = await postForm("/rooms", fd);
+      await loadRooms();
+      holder.replaceChildren(roomSummary(rm));
+      toast(`Saved room “${rm.name}”. Choose it under Room for the next view of this room.`);
+    } catch (e) { btn.disabled = false; btn.textContent = "Save"; toast(readableError(e), true); }
+  };
+  const btn = h("button", { class: "btn primary", type: "button", text: "Save", onclick: go });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  setTimeout(() => input.focus(), 30);
+  return h("div", { class: "saveroom" }, input, btn,
+    h("button", { class: "btn", type: "button", text: "Cancel", onclick: () => holder.replaceChildren() }));
+}
+// After the first render of a continued room: the room's finish changes are applied as one chat change
+// (and one per material photo), exactly as if they had been typed again.
+async function replayRoom(chat, am, rm) {
+  const texts = rm.changes.filter((c) => !c.photo).map((c) => c.text);
+  let last = am;
+  if (texts.length) last = await startRevision(chat, last, [{ x: 0.5, y: 0.5, text: texts.join(", "), whole: true }], null, null, null) || last;
+  for (const c of rm.changes.filter((c) => c.photo)) {
+    last = await startRevision(chat, last, [{ x: 0.5, y: 0.5, text: c.text, whole: true }], null, null, { room_id: rm.id, room_change: c.i }) || last;
+  }
+}
+
 async function startRender(file, text, reuse) {
   const chat = ensureChat(text);
   let um, am;
   if (reuse) { um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Processing render request…"; }
   else {
-    um = { id: uid(), role: "user", kind: "render", text, image: file, style: $("style").value, lighting: $("lighting").value, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "render", text, image: file, style: $("style").value, lighting: $("lighting").value, roomId: ($("roomSel") && $("roomSel").value) || "", ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "render", status: "loading", label: "Processing render request…", aspect: await dimsOf(file), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -982,21 +1054,24 @@ async function startRender(file, text, reuse) {
     fd.append("lighting", um.lighting || "auto");
     if (ans.token) fd.append("detect_token", ans.token);
     if (ans.finishes && Object.keys(ans.finishes).length) fd.append("zone_finishes", JSON.stringify(ans.finishes));
+    const rm = um.roomId ? roomById(um.roomId) : null;
+    if (rm) { fd.append("room_id", rm.id); fd.append("owner", roomOwner); }
     const first = await postForm("/render", fd);
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
-    offerFinishes(chat, um, am);
+    if (rm && !reuse && rm.changes.length) await replayRoom(chat, am, rm);
+    else if (!rm) offerFinishes(chat, um, am);
   } catch (e) { await failMsg(am, chat, e); }
 }
 
-async function startRevision(chat, src, pins, reuse, reference) {
+async function startRevision(chat, src, pins, reuse, reference, extra) {
   let um, am;
   if (reuse) {
     um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Sending your corrections…";
     um.pins = um.pins || pins;
   } else {
     const summary = pins.map((p, i) => (pins.length > 1 ? `${i + 1}. ` : "") + p.text).join("\n");
-    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, reference: reference || null, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, reference: reference || null, extra: extra || null, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "revision", status: "loading", label: "Sending your corrections…", progress: 0, aspect: await dimsOf(src.image), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -1012,6 +1087,7 @@ async function startRevision(chat, src, pins, reuse, reference) {
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
     if (um.reference) fd.append("reference", um.reference, "material.png");   // photo of the wanted material
+    if (um.extra) { Object.entries(um.extra).forEach(([k, v]) => fd.append(k, String(v))); fd.append("owner", roomOwner); }
     return fd;
   };
   try {
@@ -1020,7 +1096,8 @@ async function startRevision(chat, src, pins, reuse, reference) {
     catch (e) { if (e.status === 404) first = await postForm("/revise", build(true)); else throw e; }   // server forgot the base render: send it again
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
-  } catch (e) { await failMsg(am, chat, e); }
+    return am;
+  } catch (e) { await failMsg(am, chat, e); return null; }
 }
 
 function retry(am) {
@@ -1374,6 +1451,7 @@ window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("d
    Start
    ============================================================ */
 { const b = document.getElementById("lamBtn"); if (b) b.addEventListener("click", toggleComposerPicker); }
+{ const s = document.getElementById("roomSel"); if (s) s.addEventListener("change", () => { const rm = roomById(s.value); if (rm) toast(`Next upload continues room “${rm.name}”: same finishes, colours and light.`); }); }
 (async function init() {
   state.chats = (await dbAll()).sort((a, b) => b.updated - a.updated);
   // a render that was still running when the page closed cannot be resumed
@@ -1381,6 +1459,7 @@ window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("d
   renderHistory(); renderStream();
   checkStatus(); setInterval(checkStatus, HEALTH_MS);
   setupAccess();
+  loadRooms();
 })();
 </script>
 </body>
