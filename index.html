@@ -652,9 +652,12 @@ function aiMsgEl(m) {
       h("button", { class: "btn primary", type: "button", text: "Open & revise", onclick: () => openLightbox(m) }),
       h("button", { class: "btn", type: "button", text: "Download PNG", onclick: (e) => downloadRender(m, e.currentTarget) })));
     // One-click time of day: re-lights THIS render (same design, only the light changes)
-    const relight = (txt) => () => { const c = active(); if (c) startRevision(c, m, [{ x: 0.5, y: 0.5, text: txt, whole: true }]); };
+    const kSel = h("select", { class: "mini", "aria-label": "Light colour", title: "Colour of the interior lights" },
+      h("option", { value: "3000K", text: "3000K warm" }), h("option", { value: "4000K", text: "4000K neutral" }),
+      h("option", { value: "5000K", text: "5000K cool" }));
+    const relight = (txt) => () => { const c = active(); if (c) startRevision(c, m, [{ x: 0.5, y: 0.5, text: /day/.test(txt) ? txt : `${txt}, ${kSel.value} light`, whole: true }]); };
     body.append(h("div", { class: "actions light-acts" },
-      h("span", { class: "muted", text: "Lighting:" }),
+      h("span", { class: "muted", text: "Lighting:" }), kSel,
       h("button", { class: "btn", type: "button", text: "Day", title: "Bright natural daylight", onclick: relight("day view with natural daylight") }),
       h("button", { class: "btn", type: "button", text: "Evening", title: "Golden-hour sun with the lights on", onclick: relight("evening view, golden hour") }),
       h("button", { class: "btn", type: "button", text: "Night", title: "Night with every interior light on", onclick: relight("night view with all lights on") })));
