@@ -867,7 +867,7 @@ async function startRender(file, text, reuse) {
   touch(chat); renderStream();
   await saveChat(chat);
   try {
-    const ans = await askFinishes(um, am, chat);
+    const ans = { token: null, finishes: {} };     // first render keeps the design's own finishes; changes go in chat
     const fd = new FormData();
     fd.append("file", um.image, file.name || "upload.png");
     fd.append("style", um.style || "modern");
