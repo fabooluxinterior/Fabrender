@@ -153,6 +153,14 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:12p
 .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:13px}
 .meta b{color:var(--text);font-weight:500}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
+.lam{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.25);width:100%;max-width:620px}
+.lam input{width:100%;padding:8px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:inherit;font:inherit;font-size:13.5px}
+.lam .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;max-height:260px;overflow:auto}
+.lam .it{display:flex;gap:8px;align-items:center;text-align:left;padding:6px 8px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit;cursor:pointer;font-size:12.5px;line-height:1.25}
+.lam .it:hover{border-color:var(--accent)}
+.lam .sw{width:26px;height:26px;border-radius:6px;flex:none;border:1px solid rgba(255,255,255,.2)}
+.lam .it small{display:block;color:var(--muted);font-size:11px}
+#lamPop{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:50;width:min(640px,calc(100vw - 32px))}
 .ask{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--line, rgba(255,255,255,.12));border-radius:14px;max-width:640px}
 .ask .q{font-size:14.5px;font-weight:600}
 .ask .row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
@@ -365,6 +373,7 @@ select.mini option{background:#1a1411}
             <option value="evening">Evening</option>
             <option value="night">Night</option>
           </select>
+          <button id="lamBtn" class="btn opt" type="button" title="Pick a laminate from the Faboolux library">Laminates</button>
         </div>
       </div>
     </footer>
@@ -638,6 +647,7 @@ function aiMsgEl(m) {
     }
     if (meta.children.length) body.append(meta);
     if (mt.notice) body.append(h("div", { class: "note", text: mt.notice }));
+    if (m.finishAsk && m.finishAsk.zones && m.finishAsk.zones.length) body.append(finishCard(m));
     body.append(h("div", { class: "actions" },
       h("button", { class: "btn primary", type: "button", text: "Open & revise", onclick: () => openLightbox(m) }),
       h("button", { class: "btn", type: "button", text: "Download PNG", onclick: (e) => downloadRender(m, e.currentTarget) })));
@@ -824,6 +834,86 @@ async function postForm(path, fd, timeoutMs = UPLOAD_TIMEOUT_MS) {
   } finally { clearTimeout(timer); }
 }
 
+// After the first render: "Glossy or Matt?" for each detected part. Applying it re-renders the
+// SAME design (same colours and materials) and changes only the shine of the chosen parts.
+const FINISH_OPTS = [["matt", "Matt (SUD)"], ["glossy", "Glossy"]];
+// Laminate picker: names, codes and a colour chip from the Faboolux library (served by the PC)
+function lamPicker(onPick) {
+  const input = h("input", { type: "search", placeholder: "Search laminate name, code or colour (e.g. walnut, white, 10510)…" });
+  const list = h("div", { class: "list" }), box = h("div", { class: "lam" }, input, list);
+  let t = null;
+  const load = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/laminates?q=${encodeURIComponent(input.value.trim())}&limit=60`, { headers: authHeaders() });
+      const d = await r.json();
+      list.replaceChildren(...(d.items || []).map((it) => {
+        const sw = h("span", { class: "sw" }); sw.style.background = it.chip || "#777";
+        return h("button", { class: "it", type: "button", onclick: () => onPick(it) }, sw,
+          h("span", {}, it.name, h("small", { text: [it.brand, it.code, it.finish].filter(Boolean).join(" · ") })));
+      }));
+      if (!list.children.length) list.append(h("div", { class: "muted", text: "No laminate found." }));
+    } catch (_) { list.replaceChildren(h("div", { class: "muted", text: "The laminate library is not reachable right now." })); }
+  };
+  input.addEventListener("input", () => { clearTimeout(t); t = setTimeout(load, 250); });
+  load(); setTimeout(() => input.focus(), 50);
+  return box;
+}
+function toggleComposerPicker() {
+  const old = document.getElementById("lamPop"); if (old) { old.remove(); return; }
+  const pop = h("div", { id: "lamPop" }, lamPicker((it) => {
+    const p = $("prompt"); p.value = (p.value.trim() ? p.value.trim() + " " : "") + `${it.name} laminate`; autosize(); updateSend(); pop.remove(); p.focus();
+  }));
+  document.body.append(pop);
+}
+function finishCard(m) {
+  const fa = m.finishAsk;
+  const box = h("div", { class: "ask" }, h("div", { class: "q", text: "Detected finishes – glossy or matt?" }));
+  fa.zones.forEach((z) => {
+    const row = h("div", { class: "row" }, h("div", { class: "zn" }, z.item.replace(/^./, (c) => c.toUpperCase()) + (z.colour ? ` – ${z.colour}` : ""),
+      z.match ? h("small", { text: `Closest laminate: ${z.match}` }) : null));
+    FINISH_OPTS.forEach(([key, label]) => {
+      const b = h("button", { class: "btn opt", type: "button", text: label, "aria-pressed": String(fa.answers[z.item] === key),
+        onclick: () => { fa.answers[z.item] = key; row.querySelectorAll(".opt").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); lb.textContent = "Laminate…"; } });
+      row.append(b);
+    });
+    const cur = String(fa.answers[z.item] || "");
+    const lb = h("button", { class: "btn opt", type: "button", text: cur.startsWith("lam:") ? cur.slice(4) : "Laminate…", "aria-pressed": String(cur.startsWith("lam:")),
+      onclick: () => {
+        const open = box.querySelector(".lam"); if (open) open.remove();
+        row.after(lamPicker((it) => {
+          fa.answers[z.item] = "lam:" + it.name;
+          row.querySelectorAll(".opt").forEach((x) => x.setAttribute("aria-pressed", String(x === lb)));
+          lb.textContent = it.name; const o = box.querySelector(".lam"); if (o) o.remove();
+        }));
+      } });
+    row.append(lb);
+    box.append(row);
+  });
+  box.append(h("div", { class: "actions" },
+    h("button", { class: "btn primary", type: "button", text: "Re-render with these finishes", onclick: () => applyFinishes(m) }),
+    h("button", { class: "btn", type: "button", text: "Keep as is", onclick: async () => { m.finishAsk = null; const c = active(); if (c) await saveChat(c); refreshMsg(m); } })));
+  return box;
+}
+async function offerFinishes(chat, um, am) {
+  try {
+    const fd = new FormData();
+    fd.append("file", um.image, "upload.png");
+    const d = await postForm("/detect", fd, 120000);
+    if (!d || !d.zones || !d.zones.length) return;
+    const answers = {};
+    d.zones.forEach((z) => { answers[z.item] = /gloss|acrylic/.test(z.guess) ? "glossy" : "matt"; });
+    am.finishAsk = { zones: d.zones, answers };
+    await saveChat(chat);
+    refreshMsg(am, true);
+  } catch (_) { /* older backend: no question */ }
+}
+function applyFinishes(m) {
+  const chat = active(); if (!chat || !m.finishAsk) return;
+  const text = Object.entries(m.finishAsk.answers).map(([item, f]) => String(f).startsWith("lam:") ? `${item} - ${f.slice(4)} laminate` : `${item} - ${f}`).join(", ");
+  m.finishAsk = null; refreshMsg(m);
+  startRevision(chat, m, [{ x: 0.5, y: 0.5, text, whole: true }]);
+}
+
 // Finish questions: one pending answer per message, resolved by the buttons
 const askWaiters = {};
 function answerAsk(m, useAnswers) {
@@ -878,6 +968,7 @@ async function startRender(file, text, reuse) {
     const first = await postForm("/render", fd);
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
+    offerFinishes(chat, um, am);
   } catch (e) { await failMsg(am, chat, e); }
 }
 
@@ -1264,6 +1355,7 @@ window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("d
 /* ============================================================
    Start
    ============================================================ */
+{ const b = document.getElementById("lamBtn"); if (b) b.addEventListener("click", toggleComposerPicker); }
 (async function init() {
   state.chats = (await dbAll()).sort((a, b) => b.updated - a.updated);
   // a render that was still running when the page closed cannot be resumed
