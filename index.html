@@ -748,7 +748,7 @@ function lastRender(chat) {
   return null;
 }
 const PLACEHOLDER_NEW = "Add details (optional), e.g. add a floor lamp near the bed…";
-const PLACEHOLDER_EDIT = "Type a change for the last render, e.g. make the base unit shutters glossy…";
+const PLACEHOLDER_EDIT = "Type a change, e.g. base cabinets glossy - or attach a laminate photo and write: base cabinets in this";
 function updateSend() {
   const canEdit = !!lastRender(active());
   $("prompt").placeholder = state.attach || !canEdit ? PLACEHOLDER_NEW : PLACEHOLDER_EDIT;
@@ -756,8 +756,18 @@ function updateSend() {
 }
 function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 160) + "px"; }
 
+// zone names: with one of these in the message, an attached photo is a MATERIAL for that zone
+const ZONE_RX = /\b(base|wall|upper|lower|tall|loft|spice|glass|crockery|tv|headboard|wardrobe|vanity|storage)\b.*\b(cabinets?|units?|shutters?|panels?|doors?|rack)\b|\bloft\b|\bcountertop\b|\bbacksplash\b|\bshutters?\b/i;
 async function send() {
   const text = $("prompt").value.trim();
+  const lastR = lastRender(active());
+  if (state.attach && lastR && ZONE_RX.test(text)) {
+    // "base cabinets in this" + a photo of a laminate/acrylic -> that material on that zone
+    const file = state.attach.file;
+    clearAttach(); $("prompt").value = ""; autosize(); updateSend();
+    await startRevision(active(), lastR, [{ x: 0.5, y: 0.5, text, whole: true }], null, file);
+    return;
+  }
   if (state.attach) {                         // new image -> new render
     const file = state.attach.file;
     clearAttach(); $("prompt").value = ""; autosize();
@@ -972,14 +982,14 @@ async function startRender(file, text, reuse) {
   } catch (e) { await failMsg(am, chat, e); }
 }
 
-async function startRevision(chat, src, pins, reuse) {
+async function startRevision(chat, src, pins, reuse, reference) {
   let um, am;
   if (reuse) {
     um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Sending your corrections…";
     um.pins = um.pins || pins;
   } else {
     const summary = pins.map((p, i) => (pins.length > 1 ? `${i + 1}. ` : "") + p.text).join("\n");
-    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, reference: reference || null, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "revision", status: "loading", label: "Sending your corrections…", progress: 0, aspect: await dimsOf(src.image), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -994,6 +1004,7 @@ async function startRevision(chat, src, pins, reuse) {
       whole: !!p.whole }))));   // whole = typed in the chat: the server finds the object itself
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
+    if (um.reference) fd.append("reference", um.reference, "material.png");   // photo of the wanted material
     return fd;
   };
   try {
