@@ -609,6 +609,8 @@ function aiMsgEl(m) {
       const names = iso.map((x) => x.target).filter(Boolean);
       if (iso.length) meta.append(h("span", { text: names.length ? `Only changed: ${names.join(", ")}` : (iso.length > 1 ? `${iso.length} objects changed, rest untouched` : "Only the selected object changed") }));
       if (lit.length) meta.append(h("span", { text: "Lighting changed" }));
+      const regen = mt.edits.filter((x) => x.regenerated);
+      if (regen.length) { const rn = regen.map((x) => x.target).filter(Boolean); meta.append(h("span", { text: rn.length ? `Re-rendered with the change: ${rn.join(", ")}` : "Re-rendered with the change" })); }
     }
     if (meta.children.length) body.append(meta);
     if (mt.notice) body.append(h("div", { class: "note", text: mt.notice }));
