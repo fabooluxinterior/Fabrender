@@ -369,7 +369,9 @@ select.mini option{background:#1a1411}
           <span>Lighting</span>
           <select id="lighting" class="mini" aria-label="Lighting">
             <option value="auto" selected>Auto</option>
+            <option value="morning">Morning</option>
             <option value="day">Day</option>
+            <option value="afternoon">Afternoon</option>
             <option value="evening">Evening</option>
             <option value="night">Night</option>
           </select>
@@ -655,10 +657,12 @@ function aiMsgEl(m) {
     const kSel = h("select", { class: "mini", "aria-label": "Light colour", title: "Colour of the interior lights" },
       h("option", { value: "3000K", text: "3000K warm" }), h("option", { value: "4000K", text: "4000K neutral" }),
       h("option", { value: "5000K", text: "5000K cool" }));
-    const relight = (txt) => () => { const c = active(); if (c) startRevision(c, m, [{ x: 0.5, y: 0.5, text: /day/.test(txt) ? txt : `${txt}, ${kSel.value} light`, whole: true }]); };
+    const relight = (txt) => () => { const c = active(); if (c) startRevision(c, m, [{ x: 0.5, y: 0.5, text: /day|morning|afternoon/.test(txt) ? txt : `${txt}, ${kSel.value} light`, whole: true }]); };
     body.append(h("div", { class: "actions light-acts" },
       h("span", { class: "muted", text: "Lighting:" }), kSel,
+      h("button", { class: "btn", type: "button", text: "Morning", title: "Soft early-morning light", onclick: relight("morning view, soft early-morning daylight") }),
       h("button", { class: "btn", type: "button", text: "Day", title: "Bright natural daylight", onclick: relight("day view with natural daylight") }),
+      h("button", { class: "btn", type: "button", text: "Afternoon", title: "Clear afternoon sun", onclick: relight("afternoon view, clear afternoon daylight") }),
       h("button", { class: "btn", type: "button", text: "Evening", title: "Golden-hour sun with the lights on", onclick: relight("evening view, golden hour") }),
       h("button", { class: "btn", type: "button", text: "Night", title: "Night with every interior light on", onclick: relight("night view with all lights on") })));
   }
