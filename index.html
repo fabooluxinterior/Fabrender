@@ -153,6 +153,13 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:12p
 .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:13px}
 .meta b{color:var(--text);font-weight:500}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
+.ask{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--line, rgba(255,255,255,.12));border-radius:14px;max-width:640px}
+.ask .q{font-size:14.5px;font-weight:600}
+.ask .row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.ask .zn{min-width:180px;font-size:13.5px}
+.ask .zn small{display:block;color:var(--muted);font-size:12px}
+.ask .opt{padding:5px 12px;font-size:13px;border-radius:999px}
+.ask .opt[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
 .light-acts{margin-top:8px;align-items:center}
 .light-acts .muted{color:var(--muted);font-size:13px;margin-right:2px}
 .light-acts .btn{padding:5px 12px;font-size:13px}
@@ -585,7 +592,24 @@ function userMsgEl(m) {
 
 function aiMsgEl(m) {
   const body = h("div", { class: "body" });
-  if (m.status === "loading") {
+  if (m.status === "ask" && m.ask) {
+    // 'Wall cabinets - off-white: SUD or Glossy?' - confirmed before the render starts
+    const box = h("div", { class: "ask" }, h("div", { class: "q", text: "Confirm the finish of each part before rendering" }));
+    m.ask.zones.forEach((z) => {
+      const row = h("div", { class: "row" }, h("div", { class: "zn" }, z.item.replace(/^./, (c) => c.toUpperCase()) + (z.colour ? ` – ${z.colour}` : ""),
+        z.match ? h("small", { text: `Closest laminate: ${z.match}` }) : null));
+      Object.entries(m.ask.choices).forEach(([key, label]) => {
+        const b = h("button", { class: "btn opt", type: "button", text: label, "aria-pressed": String(m.ask.answers[z.item] === key),
+          onclick: () => { m.ask.answers[z.item] = key; row.querySelectorAll(".opt").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); } });
+        row.append(b);
+      });
+      box.append(row);
+    });
+    box.append(h("div", { class: "actions" },
+      h("button", { class: "btn primary", type: "button", text: "Render with these finishes", onclick: () => answerAsk(m, true) }),
+      h("button", { class: "btn", type: "button", text: "Keep as detected", onclick: () => answerAsk(m, false) })));
+    body.append(box);
+  } else if (m.status === "loading") {
     body.append(h("div", { class: "status-line" }, h("span", { class: "spin" }), h("span", { class: "label", text: m.label || "Processing render request…" })));
     const sk = h("div", { class: "skeleton" }, h("div", { class: "bar" }));
     sk.style.aspectRatio = m.aspect || "4 / 3";
@@ -800,6 +824,37 @@ async function postForm(path, fd, timeoutMs = UPLOAD_TIMEOUT_MS) {
   } finally { clearTimeout(timer); }
 }
 
+// Finish questions: one pending answer per message, resolved by the buttons
+const askWaiters = {};
+function answerAsk(m, useAnswers) {
+  const done = askWaiters[m.id]; if (!done) return;
+  delete askWaiters[m.id];
+  done(useAnswers ? { ...m.ask.answers } : {});
+}
+async function askFinishes(um, am, chat) {
+  if (um.finishes) return { token: null, finishes: um.finishes };     // retry: already answered
+  let d;
+  try {
+    setLive(am, "Reading the materials of your design…", 3);
+    const fd = new FormData();
+    fd.append("file", um.image, "upload.png");
+    d = await postForm("/detect", fd, 120000);
+  } catch (_) { return { token: null, finishes: {} }; }               // older backend / no answer: just render
+  if (!d || !d.token || !d.zones || !d.zones.length) return { token: d && d.token, finishes: {} };
+  const answers = {}; d.zones.forEach((z) => { answers[z.item] = z.guess; });
+  am.status = "ask"; am.ask = { zones: d.zones, choices: d.choices, answers };
+  refreshMsg(am, true);
+  const picked = await new Promise((res) => {
+    askWaiters[am.id] = res;
+    setTimeout(() => { if (askWaiters[am.id]) answerAsk(am, true); }, 180000);   // nobody answers: use the detected finishes
+  });
+  um.finishes = picked;
+  am.status = "loading"; am.ask = null; am.label = "Rendering with your finishes…";
+  refreshMsg(am, true);
+  await saveChat(chat);
+  return { token: d.token, finishes: picked };
+}
+
 async function startRender(file, text, reuse) {
   const chat = ensureChat(text);
   let um, am;
@@ -812,11 +867,14 @@ async function startRender(file, text, reuse) {
   touch(chat); renderStream();
   await saveChat(chat);
   try {
+    const ans = await askFinishes(um, am, chat);
     const fd = new FormData();
     fd.append("file", um.image, file.name || "upload.png");
     fd.append("style", um.style || "modern");
     fd.append("extra_prompt", um.text || "");
     fd.append("lighting", um.lighting || "auto");
+    if (ans.token) fd.append("detect_token", ans.token);
+    if (ans.finishes && Object.keys(ans.finishes).length) fd.append("zone_finishes", JSON.stringify(ans.finishes));
     const first = await postForm("/render", fd);
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
@@ -1209,7 +1267,7 @@ window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("d
 (async function init() {
   state.chats = (await dbAll()).sort((a, b) => b.updated - a.updated);
   // a render that was still running when the page closed cannot be resumed
-  for (const c of state.chats) for (const m of c.messages) if (m.role === "ai" && m.status === "loading") { m.status = "error"; m.error = "The page was closed while this was rendering. Press Try again."; }
+  for (const c of state.chats) for (const m of c.messages) if (m.role === "ai" && (m.status === "loading" || m.status === "ask")) { m.status = "error"; m.ask = null; m.error = "The page was closed while this was rendering. Press Try again."; }
   renderHistory(); renderStream();
   checkStatus(); setInterval(checkStatus, HEALTH_MS);
   setupAccess();
