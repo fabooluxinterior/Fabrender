@@ -776,8 +776,12 @@ function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.he
 const ZONE_RX = /\b(base|wall|upper|lower|tall|loft|spice|glass|crockery|tv|headboard|wardrobe|vanity|storage)\b.*\b(cabinets?|units?|shutters?|panels?|doors?|rack)\b|\bloft\b|\bcountertop\b|\bbacksplash\b|\bshutters?\b/i;
 // any interior element + "use this / texture / finish / sample" -> the photo is a material for those areas
 const ELEMENT_RX = /\b(floor(ing)?|tiles?|dado|splashback|backsplash|walls?|ceiling|counter(top)?|worktop|platform|island|cabinets?|units?|shutters?|drawers?|loft|wardrobe|tv ?(unit|panel)|vanity|panell?ing|cladding|door|table|sofa|bed|headboard|curtains?|rug)\b/i;
-const SAMPLE_RX = /\b(this|these|that|same|sample|texture|finish|material|swatch|reference|attached|photo|image)\b/i;
-const isMaterialRef = (t) => ZONE_RX.test(t) || (ELEMENT_RX.test(t) && SAMPLE_RX.test(t));
+const SAMPLE_RX = /\b(this|these|same|sample|texture|finish|material|swatch|reference|attached)\b/i;
+// 'use this' / 'apply this' / 'this texture' = a material even with no area named (the engine then asks where)
+const USE_RX = /\b(use|apply|put)\b.*\b(this|these|it|that)\b|\b(texture|finish|material|sample|swatch)\b/i;
+// words of a NEW design: 'render this sketch', '3d view of this kitchen elevation'
+const NEW_RX = /\b(render|sketch|elevation|clay|3d|model|plan|drawing|screenshot)\b/i;
+const isMaterialRef = (t) => !NEW_RX.test(t) && (ZONE_RX.test(t) || USE_RX.test(t) || (ELEMENT_RX.test(t) && SAMPLE_RX.test(t)));
 async function send() {
   const text = $("prompt").value.trim();
   const lastR = lastRender(active());
