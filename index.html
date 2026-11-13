@@ -293,6 +293,30 @@ select.mini option{background:#1a1411}
 #lbPanel .quick button{padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted);transition:.18s}
 #lbPanel .quick button:hover{color:var(--text);border-color:var(--line-2);background:var(--glass)}
 #lbPanel .send{width:100%;justify-content:center;padding:10px 14px}
+#lbList .cp{grid-column:2 / 4;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+#lbList .cp .what{color:var(--muted)}
+#lbList .cp .what b{color:var(--text);font-weight:600}
+#lbList .cp .ctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#lbList .cp select,#lbList .cp input[type=color]{font:inherit;font-size:12px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:inherit;padding:3px 6px;height:26px}
+#lbList .cp input[type=color]{width:34px;padding:1px}
+#lbList .cp label{display:flex;align-items:center;gap:5px;cursor:pointer}
+#lbList .cp .ref{display:flex;align-items:center;gap:6px}
+#lbList .cp .ref img{width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid var(--line-2)}
+#lbList .row.prot{border-color:rgba(53,224,138,.5)}
+#lb .wrap.panning{cursor:grab}
+#lb .wrap.tool-brush,#lb .wrap.tool-erase,#lb .wrap.tool-lasso{cursor:cell}
+.cmp{position:relative;overflow:hidden;border-radius:14px}
+.cmp img{display:block;width:100%}
+.cmp .top{position:absolute;inset:0;overflow:hidden;border-right:2px solid #fff}
+.cmp .top img{width:auto;height:100%;max-width:none}
+.cmp input[type=range]{position:absolute;left:0;right:0;bottom:8px;width:90%;margin:0 5%}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;max-width:760px}
+.lgrid .cell{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--glass)}
+.lgrid .cell img{width:100%;border-radius:8px;display:block}
+.lgrid .cell .muted{font-size:12px}
+.verify{font-size:12.5px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);max-width:640px}
+.verify.success{border-color:rgba(53,224,138,.45)} .verify.partial{border-color:rgba(255,209,102,.5)} .verify.failed{border-color:rgba(255,93,93,.5)}
+.qlock{display:inline-flex;align-items:center;gap:4px}
 
 /* ---------- Responsive ---------- */
 @media (max-width:860px){
@@ -312,6 +336,8 @@ select.mini option{background:#1a1411}
   #toasts{bottom:150px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}}
+  .bubble .mat { display: flex; align-items: center; gap: 10px; margin: 8px 0 2px; font-size: 13px; opacity: .9; }
+  .bubble .mat img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); }
 </style>
 </head>
 <body>
@@ -400,6 +426,16 @@ select.mini option{background:#1a1411}
       <button type="button" data-t="box" aria-pressed="false" title="Drag a rectangle">Box</button>
       <button type="button" data-t="add" aria-pressed="false" title="Add a missing part to the selected outline">+ Add area</button>
       <button type="button" data-t="sub" aria-pressed="false" title="Cut a wrong part out of the selected outline (Shift-click)">&minus; Remove area</button>
+      <button type="button" data-t="brush" aria-pressed="false" title="Paint the area to change">Brush</button>
+      <button type="button" data-t="erase" aria-pressed="false" title="Erase parts of the selection">Erase</button>
+      <button type="button" data-t="lasso" aria-pressed="false" title="Draw around an area">Lasso</button>
+      <button type="button" data-t="pan" aria-pressed="false" title="Move the zoomed picture (or hold Space)">Pan</button>
+    </div>
+    <select id="lbBrush" class="mini" aria-label="Brush size" title="Brush size"><option value="0.012">Fine</option><option value="0.025" selected>Medium</option><option value="0.05">Large</option></select>
+    <div class="seg" role="group" aria-label="Undo and zoom">
+      <button type="button" id="lbUndo" title="Undo selection (Ctrl+Z)">↶</button>
+      <button type="button" id="lbRedo" title="Redo selection (Ctrl+Y)">↷</button>
+      <button type="button" id="lbZoom" title="Zoom: mouse wheel. Click to reset">100%</button>
     </div>
     <button class="btn" id="lbDownload" type="button">Download</button>
     <button class="btn" id="lbClose" type="button" aria-label="Close viewer">Close ✕</button>
@@ -614,13 +650,26 @@ function userMsgEl(m) {
     });
     bubble.append(t);
   }
+  if (m.reference) {
+    bubble.append(h("div", { class: "mat" }, h("img", { src: urlFor(m.reference), alt: "Material sample" }),
+      h("span", { text: "Material sample" })));
+  }
   bubble.append(h("div", { class: "txt", text: m.text || (m.kind === "render" ? "Render this image." : "") }));
   return h("div", { class: "msg user", "data-id": m.id }, h("div", { class: "body" }, bubble));
 }
 
 function aiMsgEl(m) {
   const body = h("div", { class: "body" });
-  if (m.status === "ask" && m.ask) {
+  if (m.status === "question" && m.question) {
+    const box = h("div", { class: "ask" }, h("div", { class: "q", text: m.question.text }));
+    if (m.question.answer) box.append(h("div", { class: "muted", text: `You answered: ${m.question.answer}` }));
+    else {
+      const row = h("div", { class: "row" });
+      (m.question.options || []).forEach((o) => row.append(h("button", { class: "btn opt", type: "button", text: o, onclick: () => answerQuestion(m, o) })));
+      box.append(row, h("small", { class: "muted", text: "…or type your answer below." }));
+    }
+    body.append(box);
+  } else if (m.status === "ask" && m.ask) {
     // 'Wall cabinets - off-white: SUD or Glossy?' - confirmed before the render starts
     const box = h("div", { class: "ask" }, h("div", { class: "q", text: "Confirm the finish of each part before rendering" }));
     m.ask.zones.forEach((z) => {
@@ -666,13 +715,39 @@ function aiMsgEl(m) {
     }
     if (meta.children.length) body.append(meta);
     if (mt.notice) body.append(h("div", { class: "note", text: mt.notice }));
-    if (m.finishAsk && m.finishAsk.zones && m.finishAsk.zones.length) body.append(finishCard(m));
+    if (mt.verify && mt.verify.status) {     // automatic check of the correction, on the pixels
+      const v = mt.verify, label = { success: "Check: success", partial: "Check: partial", failed: "Check: failed" }[v.status] || v.status;
+      const bits = [];
+      (v.items || []).forEach((it) => bits.push(`${it.changed ? "✓" : "✗"} ${it.instruction}${it.reference_dE != null ? ` (colour vs photo ΔE ${it.reference_dE})` : ""}`));
+      if (v.leakage != null) bits.push(`changes outside the selection: ${v.leakage <= 2 ? "none" : v.leakage}`);
+      if (v.protected != null) bits.push(`protected areas: ${v.protected <= 2 ? "unchanged" : "changed " + v.protected}`);
+      if (v.geometry && v.geometry !== "ok") bits.push(v.geometry);
+      body.append(h("div", { class: "verify " + v.status }, h("b", { text: label }), " · ", bits.join(" · "),
+        (v.problems && v.problems.length) ? h("div", { class: "muted", text: "Why: " + v.problems.join("; ") }) : null));
+    }
     body.append(h("div", { class: "actions" },
       h("button", { class: "btn primary", type: "button", text: "Open & revise", onclick: () => openLightbox(m) }),
       h("button", { class: "btn", type: "button", text: "Download PNG", onclick: (e) => downloadRender(m, e.currentTarget) }),
       m.jobId ? h("button", { class: "btn", type: "button", text: "Save as room", title: "Keep this view's finishes, colours and light for the other views of this room",
         onclick: () => roomBox.replaceChildren(saveRoomForm(m, roomBox)) }) : null));
     const roomBox = h("div", {}); body.append(roomBox);
+    // versions: compare with the previous render, go back to this one, restore an object from it
+    const chatNow = active(), prevR = chatNow ? previousRender(chatNow, m) : null;
+    const isCurrent = chatNow && lastRender(chatNow) === m;
+    const cmpBox = h("div", {});
+    body.append(h("div", { class: "actions" },
+      prevR ? h("button", { class: "btn", type: "button", text: "Compare with previous", onclick: () => cmpBox.firstChild ? cmpBox.replaceChildren() : cmpBox.replaceChildren(compareEl(prevR, m)) }) : null,
+      !isCurrent ? h("button", { class: "btn", type: "button", text: "Use this version", title: "Undo the later changes: the next change starts from this render",
+        onclick: async () => { const c = active(); if (!c) return; c.currentId = m.id; await saveChat(c); renderStream(); toast("This version is now the current one. Your next change starts from it."); } }) : null,
+      (chatNow && lastRender(chatNow) !== m && m.jobId) ? h("button", { class: "btn", type: "button", text: "Restore area from this version…",
+        title: "Select objects on the current render; they come back exactly as in this version",
+        onclick: () => { const c = active(); const cur = c && lastRender(c); if (cur) openLightbox(cur, { restoreFrom: m.jobId }); } }) : null,
+      reopenPins(m) ? h("button", { class: "btn", type: "button", text: "Reopen pins", title: "Open the same corrections again to adjust them",
+        onclick: () => { const r = reopenPins(m); if (r) openLightbox(r.src, { pins: r.pins }); } }) : null,
+      m.jobId ? h("button", { class: "btn", type: "button", text: "Lighting previews", title: "Quick previews of 6 lightings side by side, then the final one",
+        onclick: () => lightingPreviews(m) }) : null));
+    body.append(cmpBox);
+    if (m.previews) body.append(previewGrid(m));
     // One-click time of day: re-lights THIS render (same design, only the light changes)
     const kSel = h("select", { class: "mini", "aria-label": "Light colour", title: "Colour of the interior lights" },
       h("option", { value: "3000K", text: "3000K warm" }), h("option", { value: "4000K", text: "4000K neutral" }),
@@ -768,6 +843,10 @@ function clearAttach() { state.attach = null; $("chip").classList.add("hidden");
 // The newest finished render in the open chat - typed changes are applied to it.
 function lastRender(chat) {
   if (!chat) return null;
+  if (chat.currentId) {            // "Use this version": later changes start from that render
+    const c = chat.messages.find((m) => m.id === chat.currentId && m.role === "ai" && m.status === "done" && m.image);
+    if (c) return c;
+  }
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const m = chat.messages[i];
     if (m.role === "ai" && m.status === "done" && m.image) return m;
@@ -785,10 +864,16 @@ function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.he
 
 // zone names: with one of these in the message, an attached photo is a MATERIAL for that zone
 const ZONE_RX = /\b(base|wall|upper|lower|tall|loft|spice|glass|crockery|tv|headboard|wardrobe|vanity|storage)\b.*\b(cabinets?|units?|shutters?|panels?|doors?|rack)\b|\bloft\b|\bcountertop\b|\bbacksplash\b|\bshutters?\b/i;
+// any interior element + "use this / texture / finish / sample" -> the photo is a material for those areas
+const ELEMENT_RX = /\b(floor(ing)?|tiles?|dado|splashback|backsplash|walls?|ceiling|counter(top)?|worktop|platform|island|cabinets?|units?|shutters?|drawers?|loft|wardrobe|tv ?(unit|panel)|vanity|panell?ing|cladding|door|table|sofa|bed|headboard|curtains?|rug)\b/i;
+const SAMPLE_RX = /\b(this|these|same|sample|texture|finish|material|swatch|reference|attached)\b/i;
+const USE_RX = /\b(use|apply|put)\b.*\b(this|these|it|that)\b|\b(texture|finish|material|sample|swatch)\b/i;
+const NEW_RX = /\b(render|sketch|elevation|clay|3d|model|plan|drawing|screenshot)\b/i;
+const isMaterialRef = (t) => !NEW_RX.test(t) && (ZONE_RX.test(t) || USE_RX.test(t) || (ELEMENT_RX.test(t) && SAMPLE_RX.test(t)));
 async function send() {
   const text = $("prompt").value.trim();
   const lastR = lastRender(active());
-  if (state.attach && lastR && ZONE_RX.test(text)) {
+  if (state.attach && lastR && isMaterialRef(text)) {
     // "base cabinets in this" + a photo of a laminate/acrylic -> that material on that zone
     const file = state.attach.file;
     clearAttach(); $("prompt").value = ""; autosize(); updateSend();
@@ -802,6 +887,8 @@ async function send() {
     return;
   }
   const chat = active(), last = lastRender(chat);
+  const pq = pendingQuestion(chat);
+  if (pq && text) { $("prompt").value = ""; autosize(); updateSend(); answerQuestion(pq, text); return; }
   if (!last) { toast("Attach a sketch or clay render first."); return; }
   if (!text) { toast("Type the change you want, e.g. make the wall unit shutters glossy."); return; }
   $("prompt").value = ""; autosize(); updateSend();
@@ -852,7 +939,8 @@ async function finishMsg(m, chat, job, jobId) {
   m.image = await (await fetch(job.image)).blob();      // data URL -> Blob
   m.jobId = jobId;
   m.status = "done";
-  m.meta = { room_label: job.room_label, light: job.light, width: job.width, height: job.height, seconds: job.seconds, notice: job.notice, can_download: job.can_download, edits: job.edits || null };
+  m.meta = { room_label: job.room_label, light: job.light, width: job.width, height: job.height, seconds: job.seconds, notice: job.notice, can_download: job.can_download, edits: job.edits || null, verify: job.verify || null };
+  chat.currentId = null;              // the newest result is the current version again
   await saveChat(chat);
   refreshMsg(m, true);
 }
@@ -1034,6 +1122,67 @@ async function replayRoom(chat, am, rm) {
   }
 }
 
+function previousRender(chat, m) {
+  const i = chat.messages.indexOf(m);
+  for (let k = i - 1; k >= 0; k--) { const x = chat.messages[k]; if (x.role === "ai" && x.status === "done" && x.image && !x.isPreview) return x; }
+  return null;
+}
+function compareEl(a, b) {           // before / after slider
+  const top = h("div", { class: "top" }, h("img", { src: urlFor(a.image), alt: "Previous" }));
+  const range = h("input", { type: "range", min: "0", max: "100", value: "50", "aria-label": "Compare" });
+  const box = h("div", { class: "cmp" }, h("img", { src: urlFor(b.image), alt: "This version" }), top, range);
+  const set = () => { top.style.width = range.value + "%"; const im = top.querySelector("img"); im.style.width = box.clientWidth + "px"; };
+  range.addEventListener("input", set); setTimeout(set, 30);
+  return box;
+}
+function reopenPins(m) {
+  const chat = active(); if (!chat || m.kind !== "revision") return null;
+  const i = chat.messages.indexOf(m), um = chat.messages[i - 1];
+  if (!um || !um.pins || !um.pins.length || um.pins.every((p) => p.whole)) return null;
+  return { src: { image: um.image, jobId: um.baseJobId, role: "ai", status: "done" }, pins: um.pins.filter((p) => !p.whole) };
+}
+// Lighting previews: 6 quick (~1.6K, no detail pass) relights of the SAME render, side by side;
+// "Use this lighting" renders the chosen one at full quality (and can lock it as the room's lighting).
+const LIGHT_PRESETS = [
+  ["Morning daylight", "morning view, soft early-morning daylight"],
+  ["Warm afternoon", "afternoon view, warm afternoon daylight"],
+  ["Neutral daylight", "day view with natural daylight, neutral 5000K light"],
+  ["Balanced artificial", "evening view with all interior lights on, balanced 4000K light"],
+  ["Warm evening", "evening view, golden hour, 3000K light"],
+  ["Premium night", "night view with all lights on, 3000K light"],
+];
+async function lightingPreviews(m) {
+  const chat = active(); if (!chat || !m.jobId) return;
+  m.previews = LIGHT_PRESETS.map(([name, text]) => ({ name, text, status: "queued" }));
+  await saveChat(chat); refreshMsg(m, true);
+  for (const pv of m.previews) {
+    pv.status = "running"; refreshMsg(m);
+    try {
+      const fd = new FormData();
+      fd.append("points", JSON.stringify([{ x: 0.5, y: 0.5, instruction: pv.text, whole: true }]));
+      fd.append("base_job_id", m.jobId); fd.append("quality", "preview");
+      const first = await postForm("/revise", fd);
+      const job = await pollJob(first.job_id, { id: "pv" });
+      pv.image = await (await fetch(job.image)).blob(); pv.jobId = first.job_id; pv.status = "done"; pv.seconds = job.seconds;
+    } catch (e) { pv.status = "error"; pv.error = readableError(e); }
+    await saveChat(chat); refreshMsg(m);
+  }
+}
+function previewGrid(m) {
+  const grid = h("div", { class: "lgrid" });
+  m.previews.forEach((pv) => {
+    grid.append(h("div", { class: "cell" },
+      h("b", { text: pv.name }),
+      pv.image ? h("img", { src: urlFor(pv.image), alt: pv.name }) : h("div", { class: "muted", text: pv.status === "error" ? (pv.error || "Failed") : (pv.status === "running" ? "Rendering preview…" : "Waiting…") }),
+      pv.seconds != null ? h("span", { class: "muted", text: `${Math.round(pv.seconds)} s preview` }) : null,
+      pv.image ? h("button", { class: "btn primary", type: "button", text: "Use this lighting", onclick: () => {
+        const c = active(); if (!c) return;
+        startRevision(c, m, [{ x: 0.5, y: 0.5, text: pv.text, whole: true }]);
+      } }) : null));
+  });
+  return h("div", {}, h("div", { class: "muted", text: "Lighting previews (quick, same camera, geometry and materials). Pick one to render it at full quality." }), grid);
+}
+
 async function startRender(file, text, reuse) {
   const chat = ensureChat(text);
   let um, am;
@@ -1060,10 +1209,23 @@ async function startRender(file, text, reuse) {
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
     if (rm && !reuse && rm.changes.length) await replayRoom(chat, am, rm);
-    else if (!rm) offerFinishes(chat, um, am);
   } catch (e) { await failMsg(am, chat, e); }
 }
 
+function pendingQuestion(chat) {
+  const m = chat && chat.messages[chat.messages.length - 1];
+  return m && m.role === "ai" && m.status === "question" && m.question && !m.question.answer ? m : null;
+}
+function answerQuestion(am, answer) {
+  const chat = active(); if (!chat) return;
+  const i = chat.messages.indexOf(am), um = chat.messages[i - 1];
+  if (!um || !um.pins || !um.pins.length) return;
+  const q = am.question, orig = um.pins[0].text, a = String(answer).trim();
+  const text = q.kind === "finish" ? `${q.part} ${a.toLowerCase()}` : `${orig} for the ${a.toLowerCase()}`;
+  q.answer = a; refreshMsg(am);
+  startRevision(chat, { image: um.image, jobId: um.baseJobId }, [{ ...um.pins[0], text }], null, um.reference,
+                { ...(um.extra || {}), answered: true });
+}
 async function startRevision(chat, src, pins, reuse, reference, extra) {
   let um, am;
   if (reuse) {
@@ -1083,7 +1245,9 @@ async function startRevision(chat, src, pins, reuse, reference, extra) {
     // refined the outline. The server outlines the object itself, nothing is drawn on the image.
     fd.append("points", JSON.stringify(um.pins.map((p) => ({
       x: p.x, y: p.y, instruction: p.text, box: p.box || null, include: p.include || [], exclude: p.exclude || [],
-      whole: !!p.whole }))));   // whole = typed in the chat: the server finds the object itself
+      whole: !!p.whole,            // whole = typed in the chat: the server finds the object itself
+      mask: p.mask || null, protect: !!p.protect, restore_from: p.restore_from || null }))));
+    if (um.quality) fd.append("quality", um.quality);
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
     if (um.reference) fd.append("reference", um.reference, "material.png");   // photo of the wanted material
@@ -1094,6 +1258,11 @@ async function startRevision(chat, src, pins, reuse, reference, extra) {
     let first;
     try { first = await postForm("/revise", build(false)); }
     catch (e) { if (e.status === 404) first = await postForm("/revise", build(true)); else throw e; }   // server forgot the base render: send it again
+    if (first && first.question) {               // not clear enough to render without guessing: ask once
+      am.status = "question"; am.question = { text: first.question, options: first.options || [], kind: first.kind || "area", part: first.part || "" };
+      refreshMsg(am, true); await saveChat(chat);
+      return am;
+    }
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
     return am;
@@ -1131,7 +1300,8 @@ async function downloadRender(m, btn) {
    Lightbox: click an object (or drag a box) and the server outlines the WHOLE object
    ============================================================ */
 const MAX_PINS = 8;
-const lb = { msg: null, pins: [], active: -1, tool: "object", drag: null };
+const lb = { msg: null, pins: [], active: -1, tool: "object", drag: null, zoom: { s: 1, tx: 0, ty: 0 }, hist: [], fut: [], restoreFrom: null };
+const MASK_W = 1024;                       // resolution of painted / lassoed selections (width)
 const COLORS = ["#4da3ff", "#ff9f43", "#3ddc97", "#c77dff", "#ff6b9a", "#ffd166", "#5eead4", "#f87171"];
 const TOOLS = [["object", "Object"], ["box", "Box"], ["add", "+ Add area"], ["sub", "− Remove area"]];
 const TOOL_HINT = {
@@ -1139,6 +1309,10 @@ const TOOL_HINT = {
   box: ["Drag a box", " around anything the click does not catch, such as a group of items or a wall panel."],
   add: ["Click a missing part", " of the selected object to add it to the outline."],
   sub: ["Click a wrong part", " to cut it out of the selected outline. Shift-click does this in any mode."],
+  brush: ["Paint", " the exact area to change (adds to the selected correction, or starts a new one)."],
+  erase: ["Erase", " parts of the selected correction's area that must not change."],
+  lasso: ["Draw around", " an area to select it (adds to the selected correction, or starts a new one)."],
+  pan: ["Drag", " to move the zoomed picture. Mouse wheel zooms; hold Space to pan in any tool."],
 };
 const QUICK = ["Change colour to white", "Change to a darker wood finish", "Replace with abstract art", "Remove this item"];
 
@@ -1151,8 +1325,11 @@ function toNorm(e) {
   return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
 }
 
-function openLightbox(m) {
-  lb.msg = m; lb.pins = []; lb.active = -1; lb.drag = null;
+function openLightbox(m, opts) {
+  lb.msg = m; lb.pins = []; lb.active = -1; lb.drag = null; lb.hist = []; lb.fut = [];
+  lb.restoreFrom = (opts && opts.restoreFrom) || null;
+  lb.pendingPins = (opts && opts.pins) || null;
+  resetZoom();
   setTool("object");
   $("lbImg").src = urlFor(m.image);
   drawPins();
@@ -1171,6 +1348,7 @@ function closeLightbox() {
 }
 function setTool(t) {
   lb.tool = t;
+  const w = $("lbWrap"); w.classList.remove("tool-brush", "tool-erase", "tool-lasso", "panning"); if (t === "pan") w.classList.add("panning"); else if (["brush", "erase", "lasso"].includes(t)) w.classList.add("tool-" + t);
   for (const b of $("lbTools").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.t === t));
   const [b, rest] = TOOL_HINT[t];
   $("lbHint").replaceChildren(h("b", { text: b }), rest);
@@ -1205,14 +1383,42 @@ function drawCanvas() {
     }
   });
   const d = lb.drag;
+  if (d && d.lasso && d.lasso.length > 1) {
+    ctx.strokeStyle = "#e3b98a"; ctx.lineWidth = 2 * dpr; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.beginPath();
+    ctx.moveTo(d.lasso[0].x * W, d.lasso[0].y * H); for (const q of d.lasso.slice(1)) ctx.lineTo(q.x * W, q.y * H);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
   if (d && d.box) {
     ctx.strokeStyle = "#e3b98a"; ctx.lineWidth = 2 * dpr; ctx.setLineDash([8 * dpr, 6 * dpr]);
     ctx.strokeRect(d.box[0] * W, d.box[1] * H, (d.box[2] - d.box[0]) * W, (d.box[3] - d.box[1]) * H); ctx.setLineDash([]);
   }
 }
 // The server sends the outline as a white-on-transparent PNG. Tint it, and build a ring around it for the edge.
+function maskSize() { const im = $("lbImg"); const r = (im.naturalHeight || 3) / (im.naturalWidth || 4); return [MASK_W, Math.max(1, Math.round(MASK_W * r))]; }
+function blankMask() { const [w, h] = maskSize(); const c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
+// selection of a correction = (server outline + painted) - erased, white on transparent
+function combinedMask(p) {
+  const c = blankMask(), x = c.getContext("2d");
+  if (p.maskImg) x.drawImage(p.maskImg, 0, 0, c.width, c.height);
+  if (p.paint) x.drawImage(p.paint, 0, 0);
+  if (p.erase) { x.globalCompositeOperation = "destination-out"; x.drawImage(p.erase, 0, 0); x.globalCompositeOperation = "source-over"; }
+  return c;
+}
+function refreshTint(p) {
+  if (!p.maskImg && !p.paint) { p.tint = p.edge = null; return; }
+  const m = combinedMask(p), w = m.width, h = m.height, col = colorOf(lb.pins.indexOf(p));
+  const t = document.createElement("canvas"); t.width = w; t.height = h;
+  const tx = t.getContext("2d"); tx.drawImage(m, 0, 0); tx.globalCompositeOperation = "source-in"; tx.fillStyle = p.protect ? "#35e08a" : col; tx.fillRect(0, 0, w, h);
+  const e = document.createElement("canvas"); e.width = w; e.height = h;
+  const ex = e.getContext("2d");
+  for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) ex.drawImage(m, dx, dy);
+  ex.globalCompositeOperation = "destination-out"; ex.drawImage(m, 0, 0);
+  ex.globalCompositeOperation = "source-in"; ex.fillStyle = "#fff"; ex.fillRect(0, 0, w, h);
+  p.tint = t; p.edge = e;
+}
 async function buildOverlay(p, dataUrl, col) {
   const img = await loadImg(dataUrl), w = img.naturalWidth, h = img.naturalHeight;
+  p.maskImg = img; p.maskUrl = dataUrl;
   const t = document.createElement("canvas"); t.width = w; t.height = h;
   const tx = t.getContext("2d"); tx.drawImage(img, 0, 0); tx.globalCompositeOperation = "source-in"; tx.fillStyle = col; tx.fillRect(0, 0, w, h);
   const e = document.createElement("canvas"); e.width = w; e.height = h;
@@ -1221,6 +1427,7 @@ async function buildOverlay(p, dataUrl, col) {
   ex.globalCompositeOperation = "destination-out"; ex.drawImage(img, 0, 0);
   ex.globalCompositeOperation = "source-in"; ex.fillStyle = "#fff"; ex.fillRect(0, 0, w, h);
   p.tint = t; p.edge = e;
+  refreshTint(p);
 }
 
 /* ---- asking the server for the outline ---- */
@@ -1246,7 +1453,9 @@ async function segmentPin(p) {
     else {
       await buildOverlay(p, m.mask, colorOf(lb.pins.indexOf(p)));
       p.area = m.area;
+      p.desc = m.colour ? { colour: m.colour, rgb: m.rgb, material: m.material, shine: m.shine, where: m.where } : null;
       p.info = `Whole object selected · ${Math.max(1, Math.round(m.area * 100))}% of the picture`;
+      drawPins();
     }
   } catch (e) {
     if (p.rev !== rev) return;
@@ -1275,72 +1484,212 @@ function focusRow(i) {
   const ta = $("lbList").querySelectorAll("textarea")[i];
   if (ta) setTimeout(() => ta.focus(), 20);
 }
-// Rebuilds the numbered points on the picture and the list of corrections beside it
+// Rebuilds the numbered points on the picture and the list of corrections beside it.
+// Each row is a small correction panel: what the area is, the instruction, protect, a reference photo,
+// and finish / colour / reflection controls that are turned into exact words for the engine.
+const FINISH_SEL = [["", "Finish: as is"], ["matte", "Matte"], ["satin", "Satin"], ["glossy", "Glossy"], ["high gloss", "High gloss"]];
+const REFL_SEL = [["", "Reflections: as is"], ["no reflections", "No reflections"], ["soft reflections", "Soft reflections"], ["strong mirror-like reflections", "Strong reflections"]];
+const ROUGH_SEL = [["", "Texture: as is"], ["perfectly smooth", "Smooth"], ["fine texture", "Fine texture"], ["rough textured", "Rough"]];
+function pinText(p) {
+  const extra = [];
+  if (p.opts) {
+    if (p.opts.colour) extra.push(`colour ${p.opts.colour}`);
+    if (p.opts.finish) extra.push(`${p.opts.finish} finish`);
+    if (p.opts.rough) extra.push(p.opts.rough);
+    if (p.opts.refl) extra.push(p.opts.refl);
+  }
+  return [p.text.trim(), extra.join(", ")].filter(Boolean).join(" - ");
+}
 function drawPins(focusIdx) {
   const wrap = $("lbWrap"), list = $("lbList");
   wrap.querySelectorAll(".pin").forEach((p) => p.remove());
   list.replaceChildren();
-  if (!lb.pins.length) list.append(h("li", { class: "empty", text: "Nothing selected yet. Click an object in the picture, or drag a box. You can mark several." }));
+  if (!lb.pins.length) list.append(h("li", { class: "empty", text: "Nothing selected yet. Click an object, drag a box, paint with Brush or draw with Lasso. You can mark several." }));
   lb.pins.forEach((p, i) => {
-    const dot = h("div", { class: "pin" + (i === lb.active ? " on" : ""), role: "button", "aria-label": `Point ${i + 1}`, text: String(i + 1) });
-    dot.style.left = p.x * 100 + "%"; dot.style.top = p.y * 100 + "%"; dot.style.background = colorOf(i);
-    dot.addEventListener("click", (e) => { e.stopPropagation(); setActive(i); focusRow(i); });
-    dot.addEventListener("pointerdown", (e) => e.stopPropagation());
+    const dot = h("div", { class: "pin" + (i === lb.active ? " on" : ""), role: "button", "aria-label": `Point ${i + 1} (drag to move)`, text: String(i + 1), title: "Drag to move this point" });
+    dot.style.left = p.x * 100 + "%"; dot.style.top = p.y * 100 + "%"; dot.style.background = p.protect ? "#35e08a" : colorOf(i);
+    dot.addEventListener("pointerdown", (e) => {
+      e.stopPropagation(); e.preventDefault(); setActive(i);
+      const move = (ev) => { const q = toNorm(ev); p.x = q.x; p.y = q.y; dot.style.left = q.x * 100 + "%"; dot.style.top = q.y * 100 + "%"; p.moved = true; };
+      const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+        if (p.moved) { p.moved = false; if (!p.manual) { snapshot(p); segmentPin(p); } } else focusRow(i); };
+      window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+    });
     wrap.append(dot);
 
-    const ta = h("textarea", { maxlength: "300", placeholder: "What should change? e.g. change the sofa colour to white", "aria-label": `Correction ${i + 1}` });
-    ta.value = p.text;
+    const ta = h("textarea", { maxlength: "300", placeholder: p.protect ? "Protected - this area will not change" : (lb.restoreFrom ? "Optional note (this area comes back from the earlier version)" : "What should change? e.g. change the sofa colour to white"), "aria-label": `Correction ${i + 1}` });
+    ta.value = p.text; ta.disabled = !!p.protect;
     ta.addEventListener("input", () => { p.text = ta.value; });
     ta.addEventListener("focus", () => setActive(i));
     ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitPins(); } });
     const info = h("div", { class: "info" + (p.busy ? " busy" : ""), text: p.info || "" });
     const del = h("button", { class: "x", type: "button", "aria-label": `Remove point ${i + 1}`, text: "×",
       onclick: () => { p.rev = (p.rev || 0) + 1; lb.pins.splice(i, 1); lb.active = -1; drawPins(); drawCanvas(); } });
-    const num = h("span", { class: "num", text: String(i + 1) }); num.style.background = colorOf(i);
-    list.append(h("li", { class: "row" + (i === lb.active ? " on" : ""), "data-i": String(i) }, num, ta, del, info));
+    const num = h("span", { class: "num", text: String(i + 1) }); num.style.background = p.protect ? "#35e08a" : colorOf(i);
+
+    // --- correction panel ---
+    p.opts = p.opts || {};
+    const d = p.desc;
+    const what = h("div", { class: "what" }, d ? h("span", {}, "Selected: ", h("b", { text: `${d.colour}` }), `, ${d.material}, ${d.shine} (${d.where})`) : (p.manual ? "Painted area" : ""));
+    const sel = (opts, key) => { const s = h("select", { "aria-label": key }, ...opts.map(([v, l]) => h("option", { value: v, text: l })));
+      s.value = p.opts[key] || ""; s.addEventListener("change", () => { p.opts[key] = s.value; }); return s; };
+    const colOn = h("input", { type: "checkbox", "aria-label": "Change colour" }); colOn.checked = !!p.opts.colour;
+    const col = h("input", { type: "color", value: p.opts.colour || (d && d.rgb) || "#d8d2c8", "aria-label": "New colour" });
+    const syncCol = () => { p.opts.colour = colOn.checked ? col.value : ""; };
+    colOn.addEventListener("change", syncCol); col.addEventListener("input", () => { colOn.checked = true; syncCol(); });
+    const prot = h("input", { type: "checkbox" }); prot.checked = !!p.protect;
+    prot.addEventListener("change", () => { p.protect = prot.checked; if (p.protect) p.text = ""; refreshTint(p); drawPins(i); });
+    const refIn = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "hidden" });
+    const refImg = p.ref ? h("img", { src: urlFor(p.ref), alt: "Reference" }) : null;
+    refIn.addEventListener("change", () => { const f = refIn.files && refIn.files[0]; if (f) { p.ref = f; drawPins(i); } });
+    const refBtn = h("button", { class: "btn", type: "button", text: p.ref ? "Change photo" : "Reference photo", title: "Photo of the wanted material (laminate, stone, fabric…)", onclick: () => refIn.click() });
+    const refX = p.ref ? h("button", { class: "btn", type: "button", text: "×", title: "Remove the photo", onclick: () => { p.ref = null; drawPins(i); } }) : null;
+    const cp = h("div", { class: "cp" }, what,
+      p.protect ? null : h("div", { class: "ctl" }, sel(FINISH_SEL, "finish"), sel(REFL_SEL, "refl"), sel(ROUGH_SEL, "rough"),
+        h("label", { title: "Change the colour to the picked one" }, colOn, col, "Colour")),
+      h("div", { class: "ctl" }, h("label", { title: "Keep this area exactly as it is (nothing may change here)" }, prot, "Protect (keep unchanged)"),
+        p.protect ? null : h("span", { class: "ref" }, refImg, refBtn, refX, refIn)));
+    list.append(h("li", { class: "row" + (i === lb.active ? " on" : "") + (p.protect ? " prot" : ""), "data-i": String(i) }, num, ta, del, info, cp));
   });
-  const n = lb.pins.length;
-  $("lbCount").textContent = n === 1 ? "1 correction" : `${n} corrections`;
-  $("lbSend").textContent = n > 1 ? `Send ${n} corrections` : "Send correction";
+  const n = lb.pins.filter((p) => !p.protect).length, np = lb.pins.length - n;
+  $("lbCount").textContent = (n === 1 ? "1 correction" : `${n} corrections`) + (np ? ` · ${np} protected` : "");
+  $("lbSend").textContent = lb.restoreFrom ? "Restore selected areas" : (n > 1 ? `Send ${n} corrections` : "Send correction");
   $("lbSend").disabled = !n;
-  $("lbClear").classList.toggle("hidden", !n);
+  $("lbClear").classList.toggle("hidden", !lb.pins.length);
   if (focusIdx != null) focusRow(focusIdx);
   drawCanvas();
 }
-function newCorrection(base) {
-  if (lb.pins.length >= MAX_PINS) { toast(`You can mark up to ${MAX_PINS} objects at once.`); return; }
-  const p = { x: 0, y: 0, box: null, text: "", include: [], exclude: [], tint: null, edge: null, busy: false, info: "", rev: 0, area: null, ...base };
+function newCorrection(base, noSegment) {
+  if (lb.pins.length >= MAX_PINS) { toast(`You can mark up to ${MAX_PINS} areas at once.`); return null; }
+  const p = { x: 0, y: 0, box: null, text: "", include: [], exclude: [], tint: null, edge: null, busy: false, info: "", rev: 0, area: null,
+    paint: null, erase: null, maskImg: null, protect: false, ref: null, opts: {}, desc: null, manual: false, ...base };
   lb.pins.push(p); lb.active = lb.pins.length - 1;
   drawPins(lb.active);
-  segmentPin(p);
+  if (!noSegment) segmentPin(p);
+  return p;
 }
+
+/* ---- undo / redo of selections ---- */
+function snapOf(p) {
+  return { p, include: p.include.map((q) => ({ ...q })), exclude: p.exclude.map((q) => ({ ...q })), box: p.box ? p.box.slice() : null,
+    paint: p.paint ? p.paint.toDataURL() : null, erase: p.erase ? p.erase.toDataURL() : null, x: p.x, y: p.y };
+}
+function snapshot(p) { if (!p) return; lb.hist.push(snapOf(p)); if (lb.hist.length > 40) lb.hist.shift(); lb.fut = []; }
+async function applySnap(s) {
+  const p = s.p; if (!lb.pins.includes(p)) return;
+  p.include = s.include; p.exclude = s.exclude; p.box = s.box; p.x = s.x; p.y = s.y;
+  const toCanvas = async (url) => { if (!url) return null; const im = await loadImg(url); const c = blankMask(); c.getContext("2d").drawImage(im, 0, 0); return c; };
+  p.paint = await toCanvas(s.paint); p.erase = await toCanvas(s.erase);
+  refreshTint(p); drawPins(lb.pins.indexOf(p));
+}
+async function undoSel() { const s = lb.hist.pop(); if (!s) return; lb.fut.push(snapOf(s.p)); await applySnap(s); }
+async function redoSel() { const s = lb.fut.pop(); if (!s) return; lb.hist.push(snapOf(s.p)); await applySnap(s); }
+
+/* ---- painting: brush, erase, lasso (masks at MASK_W resolution) ---- */
+function strokeTo(p, layer, a, b) {
+  if (!p[layer]) p[layer] = blankMask();
+  const c = p[layer], x = c.getContext("2d"), r = parseFloat($("lbBrush").value) * c.width;
+  x.strokeStyle = x.fillStyle = "#fff"; x.lineWidth = r * 2; x.lineCap = x.lineJoin = "round";
+  x.beginPath(); x.moveTo(a.x * c.width, a.y * c.height); x.lineTo(b.x * c.width, b.y * c.height); x.stroke();
+  if (layer === "paint" && p.erase) {      // painting again over an erased part brings it back
+    const e = p.erase.getContext("2d"); e.globalCompositeOperation = "destination-out"; e.lineWidth = r * 2; e.lineCap = "round";
+    e.beginPath(); e.moveTo(a.x * c.width, a.y * c.height); e.lineTo(b.x * c.width, b.y * c.height); e.stroke(); e.globalCompositeOperation = "source-over";
+  }
+}
+function fillLasso(p, pts) {
+  if (pts.length < 3) return;
+  if (!p.paint) p.paint = blankMask();
+  const c = p.paint, x = c.getContext("2d");
+  x.fillStyle = "#fff"; x.beginPath(); x.moveTo(pts[0].x * c.width, pts[0].y * c.height);
+  for (const q of pts.slice(1)) x.lineTo(q.x * c.width, q.y * c.height);
+  x.closePath(); x.fill();
+}
+function paintTarget(start) {
+  // brush / lasso add to the selected correction, or start a new hand-made one
+  let p = lb.pins[lb.active];
+  if (!p) p = newCorrection({ x: start.x, y: start.y, manual: true, info: "Painted area" }, true);
+  return p;
+}
+
+/* ---- zoom & pan (pins and outlines keep their place: they live inside the zoomed picture) ---- */
+function applyZoom() {
+  const z = lb.zoom, w = $("lbWrap");
+  w.style.transform = `translate(${z.tx}px, ${z.ty}px) scale(${z.s})`;
+  $("lbZoom").textContent = Math.round(z.s * 100) + "%";
+}
+function resetZoom() { lb.zoom = { s: 1, tx: 0, ty: 0 }; $("lbWrap").style.transform = ""; $("lbZoom").textContent = "100%"; }
+$("lb").querySelector(".stage").addEventListener("wheel", (e) => {
+  if (!lb.msg) return;
+  e.preventDefault();
+  const z = lb.zoom, k = e.deltaY < 0 ? 1.15 : 1 / 1.15, ns = Math.min(8, Math.max(1, z.s * k));
+  const r = $("lbWrap").getBoundingClientRect(), cx = e.clientX - (r.left + r.width / 2), cy = e.clientY - (r.top + r.height / 2);
+  z.tx -= cx * (ns / z.s - 1); z.ty -= cy * (ns / z.s - 1); z.s = ns;
+  if (ns === 1) { z.tx = 0; z.ty = 0; }
+  applyZoom();
+}, { passive: false });
+let spaceDown = false;
+document.addEventListener("keydown", (e) => {
+  if (!lb.msg) return;
+  if (e.code === "Space" && document.activeElement.tagName !== "TEXTAREA") { spaceDown = true; $("lbWrap").classList.add("panning"); e.preventDefault(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); e.shiftKey ? redoSel() : undoSel(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y" && document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); redoSel(); }
+});
+document.addEventListener("keyup", (e) => { if (e.code === "Space") { spaceDown = false; $("lbWrap").classList.remove("panning"); } });
+$("lbUndo").addEventListener("click", undoSel);
+$("lbRedo").addEventListener("click", redoSel);
+$("lbZoom").addEventListener("click", resetZoom);
+
+/* ---- sending: every correction carries its exact selection; reference photos go one by one ---- */
+function maskUrl(p) { return (p.maskImg || p.paint) ? combinedMask(p).toDataURL("image/png") : null; }
 function submitPins() {
-  if (!lb.pins.length) { toast("Click an object in the picture first."); return; }
-  const empty = lb.pins.findIndex((p) => !p.text.trim());
-  if (empty >= 0) { toast(`Describe the change for point ${empty + 1}.`); setActive(empty); focusRow(empty); return; }
+  const work = lb.pins.filter((p) => !p.protect);
+  if (!work.length) { toast("Select an area to change first (protected areas alone change nothing)."); return; }
+  if (!lb.restoreFrom) {
+    const empty = lb.pins.findIndex((p) => !p.protect && !pinText(p));
+    if (empty >= 0) { toast(`Describe the change for point ${empty + 1}.`); setActive(empty); focusRow(empty); return; }
+  }
   if (lb.pins.some((p) => p.busy)) { toast("Still outlining the object. One moment."); return; }
-  // plain data only: canvases cannot be stored in the chat history
-  const pins = lb.pins.map((p) => ({ x: p.x, y: p.y, text: p.text.trim(), box: p.box ? p.box.slice() : null,
-    include: p.include.map((q) => ({ ...q })), exclude: p.exclude.map((q) => ({ ...q })), area: p.area }));
+  // plain data only (stored in the chat history): masks as PNG data URLs
+  const plain = (p) => ({ x: p.x, y: p.y, text: lb.restoreFrom ? (p.text.trim() || "restore this area") : pinText(p), box: p.box ? p.box.slice() : null,
+    include: p.include.map((q) => ({ ...q })), exclude: p.exclude.map((q) => ({ ...q })), area: p.area,
+    mask: maskUrl(p), protect: !!p.protect, restore_from: lb.restoreFrom || null });
+  const protects = lb.pins.filter((p) => p.protect).map(plain);
+  const plainPins = work.filter((p) => !p.ref).map(plain);
+  const refPins = work.filter((p) => p.ref).map((p) => ({ pin: plain(p), ref: p.ref }));
   const src = lb.msg, chat = active();
   closeLightbox();
   if (!chat || !src) return;
-  startRevision(chat, src, pins);
+  (async () => {
+    let base = src;
+    if (plainPins.length) base = (await startRevision(chat, base, [...plainPins, ...protects])) || base;
+    for (const r of refPins) base = (await startRevision(chat, base, [r.pin, ...protects], null, r.ref)) || base;
+  })();
 }
 
-/* ---- pointer handling on the picture: click = object, drag = box ---- */
+/* ---- pointer handling on the picture ---- */
 const wrapEl = $("lbWrap");
 wrapEl.addEventListener("pointerdown", (e) => {
-  if (e.target !== $("lbImg") || e.button !== 0) return;
+  if (e.target !== $("lbImg") || (e.button !== 0 && e.button !== 1)) return;
   wrapEl.setPointerCapture(e.pointerId);
   const p = toNorm(e);
-  lb.drag = { x0: p.x, y0: p.y, sx: e.clientX, sy: e.clientY, moved: false, box: null };
+  const tool = spaceDown || e.button === 1 ? "pan" : lb.tool;
+  lb.drag = { x0: p.x, y0: p.y, sx: e.clientX, sy: e.clientY, moved: false, box: null, tool, last: p, lasso: tool === "lasso" ? [p] : null,
+    ztx: lb.zoom.tx, zty: lb.zoom.ty };
+  if (tool === "brush" || tool === "erase") {
+    const tp = tool === "erase" ? lb.pins[lb.active] : paintTarget(p);
+    if (!tp) { toast("Select a correction first, then erase parts of it."); lb.drag = null; return; }
+    snapshot(tp); lb.drag.pin = tp;
+    strokeTo(tp, tool === "erase" ? "erase" : "paint", p, p); refreshTint(tp); drawCanvas();
+  }
 });
 wrapEl.addEventListener("pointermove", (e) => {
   const d = lb.drag; if (!d) return;
   if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 6) d.moved = true;
-  if (d.moved && lb.tool === "box") {
-    const p = toNorm(e);
+  const p = toNorm(e);
+  if (d.tool === "pan") { lb.zoom.tx = d.ztx + (e.clientX - d.sx); lb.zoom.ty = d.zty + (e.clientY - d.sy); applyZoom(); return; }
+  if (d.tool === "brush" || d.tool === "erase") { strokeTo(d.pin, d.tool === "erase" ? "erase" : "paint", d.last, p); d.last = p; refreshTint(d.pin); drawCanvas(); return; }
+  if (d.tool === "lasso") { d.lasso.push(p); drawCanvas(); return; }
+  if (d.moved && d.tool === "box") {
     d.box = [Math.min(d.x0, p.x), Math.min(d.y0, p.y), Math.max(d.x0, p.x), Math.max(d.y0, p.y)];
     drawCanvas();
   }
@@ -1349,21 +1698,40 @@ wrapEl.addEventListener("pointerup", (e) => {
   const d = lb.drag; lb.drag = null; if (!d) return;
   try { wrapEl.releasePointerCapture(e.pointerId); } catch (_) {}
   const p = toNorm(e);
-  if (lb.tool === "box" && d.moved && d.box && d.box[2] - d.box[0] > 0.01 && d.box[3] - d.box[1] > 0.01) {
+  if (d.tool === "pan" || d.tool === "brush" || d.tool === "erase") { drawPins(lb.active); return; }
+  if (d.tool === "lasso") {
+    if (d.lasso.length > 4) { const tp = paintTarget(d.lasso[0]); snapshot(tp); fillLasso(tp, d.lasso); refreshTint(tp); drawPins(lb.pins.indexOf(tp)); }
+    drawCanvas(); return;
+  }
+  if (d.tool === "box" && d.moved && d.box && d.box[2] - d.box[0] > 0.01 && d.box[3] - d.box[1] > 0.01) {
     newCorrection({ x: (d.box[0] + d.box[2]) / 2, y: (d.box[1] + d.box[3]) / 2, box: d.box });
-  } else if (!d.moved || lb.tool !== "box") {
-    const tool = e.shiftKey || e.altKey ? "sub" : lb.tool;
+  } else if (!d.moved || d.tool !== "box") {
+    const tool = e.shiftKey || e.altKey ? "sub" : d.tool;
     if (tool === "add" || tool === "sub") {
       const a = lb.pins[lb.active];
       if (!a) { toast("Select an object first, then add or remove areas."); }
-      else { (tool === "add" ? a.include : a.exclude).push({ x: p.x, y: p.y }); drawCanvas(); segmentPin(a); }
+      else { snapshot(a); (tool === "add" ? a.include : a.exclude).push({ x: p.x, y: p.y }); drawCanvas(); segmentPin(a); }
     } else newCorrection({ x: p.x, y: p.y });
   }
   drawCanvas();
 });
 wrapEl.addEventListener("pointercancel", () => { lb.drag = null; drawCanvas(); });
 
-$("lbImg").addEventListener("load", () => { sizeCanvas(); drawCanvas(); });
+$("lbImg").addEventListener("load", async () => {
+  sizeCanvas();
+  const pend = lb.pendingPins; lb.pendingPins = null;
+  if (pend && lb.msg) {           // "Reopen pins": the earlier corrections come back, editable
+    for (const q of pend) {
+      const p = newCorrection({ x: q.x, y: q.y, box: q.box || null, text: (q.text || "").split(" - ")[0], include: (q.include || []).map((v) => ({ ...v })),
+        exclude: (q.exclude || []).map((v) => ({ ...v })), protect: !!q.protect, manual: !!q.mask }, true);
+      if (!p) break;
+      if (q.mask) { p.maskImg = await loadImg(q.mask); p.info = "Earlier selection"; refreshTint(p); }
+      else segmentPin(p);
+    }
+    drawPins(0);
+  }
+  drawCanvas();
+});
 window.addEventListener("resize", () => { if (lb.msg) { sizeCanvas(); drawCanvas(); } });
 $("lbTools").addEventListener("click", (e) => { const b = e.target.closest("button[data-t]"); if (b) setTool(b.dataset.t); });
 $("lbQuick").append(...QUICK.map((q) => h("button", { type: "button", text: q, onclick: () => {
