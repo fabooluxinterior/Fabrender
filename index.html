@@ -308,6 +308,8 @@ select.mini option{background:#1a1411}
   #toasts{bottom:150px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}}
+  .bubble .mat { display: flex; align-items: center; gap: 10px; margin: 8px 0 2px; font-size: 13px; opacity: .9; }
+  .bubble .mat img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); }
 </style>
 </head>
 <body>
@@ -596,6 +598,10 @@ function userMsgEl(m) {
       d.style.left = p.x * 100 + "%"; d.style.top = p.y * 100 + "%"; t.append(d);
     });
     bubble.append(t);
+  }
+  if (m.reference) {          // the material photo sent with this change (tile, laminate, stone...)
+    bubble.append(h("div", { class: "mat" }, h("img", { src: urlFor(m.reference), alt: "Material sample" }),
+      h("span", { text: "Material sample" })));
   }
   bubble.append(h("div", { class: "txt", text: m.text || (m.kind === "render" ? "Render this image." : "") }));
   return h("div", { class: "msg user", "data-id": m.id }, h("div", { class: "body" }, bubble));
