@@ -765,10 +765,14 @@ function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.he
 
 // zone names: with one of these in the message, an attached photo is a MATERIAL for that zone
 const ZONE_RX = /\b(base|wall|upper|lower|tall|loft|spice|glass|crockery|tv|headboard|wardrobe|vanity|storage)\b.*\b(cabinets?|units?|shutters?|panels?|doors?|rack)\b|\bloft\b|\bcountertop\b|\bbacksplash\b|\bshutters?\b/i;
+// any interior element + "use this / texture / finish / sample" -> the photo is a material for those areas
+const ELEMENT_RX = /\b(floor(ing)?|tiles?|dado|splashback|backsplash|walls?|ceiling|counter(top)?|worktop|platform|island|cabinets?|units?|shutters?|drawers?|loft|wardrobe|tv ?(unit|panel)|vanity|panell?ing|cladding|door|table|sofa|bed|headboard|curtains?|rug)\b/i;
+const SAMPLE_RX = /\b(this|these|that|same|sample|texture|finish|material|swatch|reference|attached|photo|image)\b/i;
+const isMaterialRef = (t) => ZONE_RX.test(t) || (ELEMENT_RX.test(t) && SAMPLE_RX.test(t));
 async function send() {
   const text = $("prompt").value.trim();
   const lastR = lastRender(active());
-  if (state.attach && lastR && ZONE_RX.test(text)) {
+  if (state.attach && lastR && isMaterialRef(text)) {
     // "base cabinets in this" + a photo of a laminate/acrylic -> that material on that zone
     const file = state.attach.file;
     clearAttach(); $("prompt").value = ""; autosize(); updateSend();
