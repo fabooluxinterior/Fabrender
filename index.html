@@ -603,7 +603,17 @@ function userMsgEl(m) {
 
 function aiMsgEl(m) {
   const body = h("div", { class: "body" });
-  if (m.status === "ask" && m.ask) {
+  if (m.status === "question" && m.question) {
+    // the engine was not sure what to change: one short question, tap an answer or type one
+    const box = h("div", { class: "ask" }, h("div", { class: "q", text: m.question.text }));
+    if (m.question.answer) box.append(h("div", { class: "muted", text: `You answered: ${m.question.answer}` }));
+    else {
+      const row = h("div", { class: "row" });
+      (m.question.options || []).forEach((o) => row.append(h("button", { class: "btn opt", type: "button", text: o, onclick: () => answerQuestion(m, o) })));
+      box.append(row, h("small", { class: "muted", text: "…or type your answer below." }));
+    }
+    body.append(box);
+  } else if (m.status === "ask" && m.ask) {
     // 'Wall cabinets - off-white: SUD or Glossy?' - confirmed before the render starts
     const box = h("div", { class: "ask" }, h("div", { class: "q", text: "Confirm the finish of each part before rendering" }));
     m.ask.zones.forEach((z) => {
@@ -649,7 +659,6 @@ function aiMsgEl(m) {
     }
     if (meta.children.length) body.append(meta);
     if (mt.notice) body.append(h("div", { class: "note", text: mt.notice }));
-    if (m.finishAsk && m.finishAsk.zones && m.finishAsk.zones.length) body.append(finishCard(m));
     body.append(h("div", { class: "actions" },
       h("button", { class: "btn primary", type: "button", text: "Open & revise", onclick: () => openLightbox(m) }),
       h("button", { class: "btn", type: "button", text: "Download PNG", onclick: (e) => downloadRender(m, e.currentTarget) })));
@@ -786,6 +795,8 @@ async function send() {
     return;
   }
   const chat = active(), last = lastRender(chat);
+  const pq = pendingQuestion(chat);
+  if (pq && text) { $("prompt").value = ""; autosize(); updateSend(); answerQuestion(pq, text); return; }
   if (!last) { toast("Attach a sketch or clay render first."); return; }
   if (!text) { toast("Type the change you want, e.g. make the wall unit shutters glossy."); return; }
   $("prompt").value = ""; autosize(); updateSend();
@@ -989,18 +1000,31 @@ async function startRender(file, text, reuse) {
     const first = await postForm("/render", fd);
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
-    offerFinishes(chat, um, am);
   } catch (e) { await failMsg(am, chat, e); }
 }
 
-async function startRevision(chat, src, pins, reuse, reference) {
+// answer to the engine's question -> the same change again, now with the answer in it
+function pendingQuestion(chat) {
+  const m = chat && chat.messages[chat.messages.length - 1];
+  return m && m.role === "ai" && m.status === "question" && m.question && !m.question.answer ? m : null;
+}
+function answerQuestion(am, answer) {
+  const chat = active(); if (!chat) return;
+  const i = chat.messages.indexOf(am), um = chat.messages[i - 1];
+  if (!um || !um.pins || !um.pins.length) return;
+  const q = am.question, orig = um.pins[0].text, a = String(answer).trim();
+  const text = q.kind === "finish" ? `${q.part} ${a.toLowerCase()}` : `${orig} for the ${a.toLowerCase()}`;
+  q.answer = a; refreshMsg(am);
+  startRevision(chat, { image: um.image, jobId: um.baseJobId }, [{ ...um.pins[0], text }], null, um.reference, true);
+}
+async function startRevision(chat, src, pins, reuse, reference, answered) {
   let um, am;
   if (reuse) {
     um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Sending your corrections…";
     um.pins = um.pins || pins;
   } else {
     const summary = pins.map((p, i) => (pins.length > 1 ? `${i + 1}. ` : "") + p.text).join("\n");
-    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, reference: reference || null, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, reference: reference || null, answered: !!answered, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "revision", status: "loading", label: "Sending your corrections…", progress: 0, aspect: await dimsOf(src.image), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -1016,12 +1040,18 @@ async function startRevision(chat, src, pins, reuse, reference) {
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
     if (um.reference) fd.append("reference", um.reference, "material.png");   // photo of the wanted material
+    if (um.answered) fd.append("answered", "true");                            // already asked once: never ask again
     return fd;
   };
   try {
     let first;
     try { first = await postForm("/revise", build(false)); }
     catch (e) { if (e.status === 404) first = await postForm("/revise", build(true)); else throw e; }   // server forgot the base render: send it again
+    if (first && first.question) {               // not clear enough to render without guessing: ask once
+      am.status = "question"; am.question = { text: first.question, options: first.options || [], kind: first.kind || "area", part: first.part || "" };
+      refreshMsg(am, true); await saveChat(chat);
+      return;
+    }
     const job = await pollJob(first.job_id, am);
     await finishMsg(am, chat, job, first.job_id);
   } catch (e) { await failMsg(am, chat, e); }
