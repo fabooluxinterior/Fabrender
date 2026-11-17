@@ -352,7 +352,7 @@ select.mini option{background:#1a1411}
           <button class="attach" id="attachBtn" type="button" aria-label="Attach an image" title="Attach an image">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z"/></svg>
           </button>
-          <input id="file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden">
+          <input id="file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" multiple>
           <textarea id="prompt" rows="1" maxlength="300" placeholder="Add details (optional), e.g. add a floor lamp near the bed…" aria-label="Extra details"></textarea>
           <button class="send" id="sendBtn" type="button" aria-label="Send" disabled>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
@@ -600,8 +600,9 @@ function userMsgEl(m) {
     bubble.append(t);
   }
   if (m.reference) {          // the material photo sent with this change (tile, laminate, stone...)
-    bubble.append(h("div", { class: "mat" }, h("img", { src: urlFor(m.reference), alt: "Material sample" }),
-      h("span", { text: "Material sample" })));
+    const extra = (m.more || []).map((f, i) => h("img", { src: urlFor(f), alt: `Sample ${i + 2}` }));
+    bubble.append(h("div", { class: "mat" }, h("img", { src: urlFor(m.reference), alt: "Material sample" }), ...extra,
+      h("span", { text: extra.length ? `Reference photos (${extra.length + 1}, in order)` : "Material sample" })));
   }
   bubble.append(h("div", { class: "txt", text: m.text || (m.kind === "render" ? "Render this image." : "") }));
   return h("div", { class: "msg user", "data-id": m.id }, h("div", { class: "body" }, bubble));
@@ -746,14 +747,16 @@ function touch(chat) { state.chats = [chat, ...state.chats.filter((c) => c !== c
 /* ============================================================
    Composer: attach, textarea, send
    ============================================================ */
-function setAttach(file) {
+function setAttach(file, more) {
   if (!file) return;
+  const okFile = (f) => /^image\/(png|jpeg|webp)$/.test(f.type) && f.size <= MAX_UPLOAD_MB * 1024 * 1024;
   if (!/^image\/(png|jpeg|webp)$/.test(file.type)) { toast("Please choose a PNG, JPG or WEBP image.", true); return; }
   if (file.size > MAX_UPLOAD_MB * 1024 * 1024) { toast(`That image is larger than ${MAX_UPLOAD_MB} MB.`, true); return; }
-  state.attach = { file };
+  more = (more || []).filter(okFile).slice(0, 3);   // several reference photos: the first + up to 3 more
+  state.attach = { file, more };
   const chip = $("chip");
   chip.querySelector("img").src = urlFor(file);
-  chip.querySelector("span").textContent = file.name || "Pasted image";
+  chip.querySelector("span").textContent = (file.name || "Pasted image") + (more.length ? ` + ${more.length} more` : "");
   chip.classList.remove("hidden");
   updateSend();
   $("prompt").focus();
@@ -793,9 +796,9 @@ async function send() {
   const lastR = lastRender(active());
   if (state.attach && lastR && isMaterialRef(text)) {
     // "base cabinets in this" + a photo of a laminate/acrylic -> that material on that zone
-    const file = state.attach.file;
+    const file = state.attach.file, more = state.attach.more || [];
     clearAttach(); $("prompt").value = ""; autosize(); updateSend();
-    await startRevision(active(), lastR, [{ x: 0.5, y: 0.5, text, whole: true }], null, file);
+    await startRevision(active(), lastR, [{ x: 0.5, y: 0.5, text, whole: true }], null, file, false, more);
     return;
   }
   if (state.attach) {                         // new image -> new render
@@ -1025,16 +1028,16 @@ function answerQuestion(am, answer) {
   const q = am.question, orig = um.pins[0].text, a = String(answer).trim();
   const text = q.kind === "finish" ? `${q.part} ${a.toLowerCase()}` : `${orig} for the ${a.toLowerCase()}`;
   q.answer = a; refreshMsg(am);
-  startRevision(chat, { image: um.image, jobId: um.baseJobId }, [{ ...um.pins[0], text }], null, um.reference, true);
+  startRevision(chat, { image: um.image, jobId: um.baseJobId }, [{ ...um.pins[0], text }], null, um.reference, true, um.more);
 }
-async function startRevision(chat, src, pins, reuse, reference, answered) {
+async function startRevision(chat, src, pins, reuse, reference, answered, more) {
   let um, am;
   if (reuse) {
     um = reuse.user; am = reuse.ai; am.status = "loading"; am.error = null; am.progress = 0; am.label = "Sending your corrections…";
     um.pins = um.pins || pins;
   } else {
     const summary = pins.map((p, i) => (pins.length > 1 ? `${i + 1}. ` : "") + p.text).join("\n");
-    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, reference: reference || null, answered: !!answered, ts: Date.now() };
+    um = { id: uid(), role: "user", kind: "revision", text: summary, image: src.image, pins, baseJobId: src.jobId || null, reference: reference || null, more: more || [], answered: !!answered, ts: Date.now() };
     am = { id: uid(), role: "ai", kind: "revision", status: "loading", label: "Sending your corrections…", progress: 0, aspect: await dimsOf(src.image), ts: Date.now() };
     chat.messages.push(um, am);
   }
@@ -1050,6 +1053,7 @@ async function startRevision(chat, src, pins, reuse, reference, answered) {
     if (!withFile && um.baseJobId) fd.append("base_job_id", um.baseJobId);
     else fd.append("file", um.image, "base.png");
     if (um.reference) fd.append("reference", um.reference, "material.png");   // photo of the wanted material
+    (um.more || []).forEach((f, i) => fd.append("references", f, `sample${i + 2}.png`));   // more photos, in order
     if (um.answered) fd.append("answered", "true");                            // already asked once: never ask again
     return fd;
   };
@@ -1400,7 +1404,7 @@ function closeSidebar() { $("sidebar").classList.remove("open"); }
 $("menuBtn").addEventListener("click", () => $("sidebar").classList.toggle("open"));
 $("newChat").addEventListener("click", newChat);
 $("attachBtn").addEventListener("click", () => $("file").click());
-$("file").addEventListener("change", (e) => setAttach(e.target.files[0]));
+$("file").addEventListener("change", (e) => setAttach(e.target.files[0], [...e.target.files].slice(1)));
 $("chip").querySelector("button").addEventListener("click", clearAttach);
 $("sendBtn").addEventListener("click", send);
 $("prompt").addEventListener("input", () => { autosize(); updateSend(); });
