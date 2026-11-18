@@ -308,6 +308,7 @@ async function loadTraining() {
     $("jobDs").replaceChildren(...(ds.length ? ds.map(d => el("option", { value: d.id, text: `${d.id} (${d.stage})` })) : [el("option", { value: "", text: "no datasets" })]));
     $("jobBody").replaceChildren(...(j.jobs.length ? j.jobs.map(x => el("tr", {}, el("td", { text: x.id }), el("td", { text: x.dataset }), el("td", {}, pill(x.status)), el("td", { text: x.detail }),
       el("td", {}, el("button", { cls: "ghost", text: "Log", onclick: async () => { const l = await call(`/jobs/${x.id}/log`); $("jobLog").textContent = l.log || "(no log yet)"; } }), " ",
+        ["queued", "paused"].includes(x.status) ? el("button", { cls: "ghost", text: "Start now", onclick: async () => { if (!confirm("Start this job now instead of tonight? Any render will pause it, and the PC will be slow while it trains.")) return; try { const r = await call(`/jobs/${x.id}/now`, { method: "POST" }); toast(r.note); loadTraining(); } catch (e) { toast(e.message, true); } } }) : "", " ",
         ["queued", "running", "paused"].includes(x.status) ? el("button", { cls: "ghost", text: "Cancel", onclick: async () => { await call(`/jobs/${x.id}/cancel`, { method: "POST" }); loadTraining(); } }) : "")))
       : [el("tr", {}, el("td", { colspan: 5, cls: "muted", text: "No training jobs. None has ever run." }))]));
   } catch (e) { toast(e.message, true); }
