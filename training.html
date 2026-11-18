@@ -66,6 +66,9 @@ th{color:var(--muted);font-weight:500}
   <button data-t="datasets">Datasets</button>
   <button data-t="library">Library</button>
   <button data-t="images">Images</button>
+  <button data-t="analyse">Analyse a picture</button>
+  <button data-t="train">Training</button>
+  <button data-t="models">Models &amp; evaluation</button>
   <button data-t="review">Review queue</button>
 </nav>
 <main>
@@ -112,6 +115,39 @@ th{color:var(--muted);font-weight:500}
       <div id="imOut"></div></div>
   </section>
 
+  <section id="analyse">
+    <div class="card"><h2>What does the AI see?</h2>
+      <p class="muted">Runs the local vision model on one picture and matches every item to the library. Results are <b>suggestions</b> — approve or reject them; nothing becomes training data on its own. Waits if a render is running.</p>
+      <div class="row"><input type="file" id="anFile" accept="image/png,image/jpeg,image/webp"><button class="btn" id="anGo">Analyse</button></div>
+      <div id="anOut"></div></div>
+    <div class="card"><h2>Recent suggestions</h2><table><thead><tr><th>When</th><th>Room</th><th>Items</th><th>Status</th><th></th></tr></thead><tbody id="anBody"></tbody></table></div>
+  </section>
+
+  <section id="train">
+    <div class="card"><h2>Can training start?</h2><div id="rdOut"></div></div>
+    <div class="card"><h2>Licence decision</h2>
+      <p class="muted">FLUX.1 Kontext [dev] is licensed for non-commercial use. Training for client work needs Faboolux's own decision (e.g. a commercial licence from Black Forest Labs). Record it here only once it is settled.</p>
+      <div class="row"><select id="licSt"><option value="pending">Pending</option><option value="commercial_licence_obtained">Commercial licence obtained</option><option value="non_commercial_research_only">Non-commercial research only</option></select>
+        <input id="licNote" placeholder="Note (licence ref, date)" style="flex:1"><input id="licConf" placeholder="Type I CONFIRM"><button class="btn" id="licGo">Record</button></div></div>
+    <div class="card"><h2>Training jobs</h2>
+      <div class="row"><select id="jobDs"></select><input id="jobSteps" type="number" value="2000" min="100" max="10000" style="width:110px"><button class="btn" id="jobGo">Queue training</button>
+        <span class="muted">A job only runs when every check above is green, and pauses whenever a render needs the GPU.</span></div>
+      <table><thead><tr><th>Job</th><th>Dataset</th><th>Status</th><th>Detail</th><th></th></tr></thead><tbody id="jobBody"></tbody></table>
+      <pre id="jobLog" class="muted" style="white-space:pre-wrap;max-height:240px;overflow:auto"></pre></div>
+  </section>
+
+  <section id="models">
+    <div class="card"><h2>Models</h2>
+      <p class="muted">candidate → validated (measured against the current engine on the same pictures) → active (promoted by a person). Roll back at any time.</p>
+      <table><thead><tr><th>Model</th><th>Status</th><th>Measured on</th><th></th></tr></thead><tbody id="mdBody"></tbody></table>
+      <div class="row" style="margin-top:10px"><button class="ghost" id="rbGo">Roll back to the baseline engine</button></div></div>
+    <div class="card"><h2>Measure the current engine</h2>
+      <p class="muted">Compares each saved design with its render: <b>structure kept</b> (design lines found in the render), <b>invented lines</b> (fluting, grooves or objects the design didn't have) and <b>colour shift</b> (ΔE; ~2 is barely visible). These numbers are the bar a trained model must beat.</p>
+      <div class="row"><button class="btn" id="evGo">Measure the latest renders</button><span class="muted" id="evNote"></span></div>
+      <table><thead><tr><th>Render</th><th>Structure kept</th><th>Invented lines</th><th>Colour shift</th></tr></thead><tbody id="evBody"></tbody></table>
+      <p class="muted" id="evMean"></p></div>
+  </section>
+
   <section id="review">
     <div class="card"><h2>Review queue</h2><p class="muted">Problems found by validation. Approve, mark fixed, or reject each one.</p>
       <table><thead><tr><th>#</th><th>Item</th><th>Reason</th><th></th></tr></thead><tbody id="revBody"></tbody></table></div>
@@ -137,7 +173,7 @@ const pill = (s) => el("span", { cls: "pill " + ({ validated: "ok", reviewed: "o
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
   document.querySelectorAll("main section").forEach(s => s.classList.toggle("on", s.id === b.dataset.t));
-  ({ overview: loadOverview, datasets: loadDatasets, library: loadLibrary, review: loadReview })[b.dataset.t]?.();
+  ({ overview: loadOverview, datasets: loadDatasets, library: loadLibrary, review: loadReview, analyse: loadSuggestions, train: loadTraining, models: loadModels })[b.dataset.t]?.();
 });
 $("codeGo").onclick = () => { code = $("code").value.trim(); try { localStorage.setItem(CODE_KEY, code); } catch (_) {} $("denied").style.display = "none"; loadOverview(); };
 
@@ -152,6 +188,7 @@ async function loadOverview() {
     $("trainNote").textContent = "Status: " + s.training_status + ". Active model: " + s.model_active + ".";
     const m = await call("/models");
     $("models").textContent = m.models.map(x => `${x.name} — ${x.status}`).join("; ");
+    $("board").append(el("div", { cls: "stage" }, el("b", { text: s.ai_suggestions ?? 0 }), el("span", { text: "AI suggestions to review" })));
   } catch (e) { toast(e.message, true); }
 }
 
@@ -224,6 +261,67 @@ async function loadReview() {
       : [el("tr", {}, el("td", { colspan: 4, cls: "muted", text: "Nothing waiting for review." }))]));
   } catch (e) { toast(e.message, true); }
 }
+const fmtT = (t) => t ? new Date(t * 1000).toLocaleString() : "";
+const fd = (o) => { const f = new FormData(); for (const [k, v] of Object.entries(o)) f.append(k, v); return f; };
+
+$("anGo").onclick = async () => {
+  const f = $("anFile").files[0]; if (!f) return toast("Choose a picture first", true);
+  $("anGo").disabled = true; $("anOut").replaceChildren(el("p", { cls: "muted", text: "Looking at the picture… (about 20–60 s)" }));
+  try { const r = await call("/understanding/analyze", { method: "POST", body: fd({ file: f }) });
+    $("anOut").replaceChildren(
+      el("p", { cls: "muted", text: `${r.room_type || "room"} · ${r.input_type || ""} · ${r.style || ""} · ${r.seconds}s · ${r.model}` }),
+      el("div", { cls: "row" }, ...r.colours.map(c => el("span", { cls: "pill", style: `background:${c.hex};color:#000`, text: `${c.hex} ${Math.round(c.share * 100)}%` }))),
+      el("table", {}, el("thead", {}, el("tr", {}, ...["Item", "Library match", "Material", "Finish / colour", "Where", "Confidence"].map(h => el("th", { text: h })))),
+        el("tbody", {}, ...r.objects.map(o => el("tr", {}, el("td", { text: o.name }), el("td", {}, o.object_id ? `${o.object_id} (${o.object_match})` : pill("not in library")),
+          el("td", { text: `${o.material}${o.material_id ? " → " + o.material_id : ""}` }), el("td", { text: [o.finish, o.colour].filter(Boolean).join(", ") }), el("td", { text: o.where }),
+          el("td", {}, el("span", { cls: "pill " + (o.confidence >= .7 ? "ok" : o.confidence >= .5 ? "warn" : "bad"), text: Math.round(o.confidence * 100) + "%" })))))),
+      el("p", { cls: "muted", text: r.note }));
+    loadSuggestions();
+  } catch (e) { $("anOut").replaceChildren(el("div", { cls: "note err", text: e.message })); } finally { $("anGo").disabled = false; }
+};
+async function loadSuggestions() {
+  try { const a = await call("/understanding");
+    $("anBody").replaceChildren(...(a.length ? a.map(x => el("tr", {}, el("td", { text: fmtT(x.created) }), el("td", { text: x.data.room_type || "" }),
+      el("td", { text: (x.data.objects || []).map(o => o.name).join(", ") }), el("td", {}, pill(x.status)),
+      el("td", {}, ...["approved", "rejected"].map(st => el("button", { cls: "ghost", text: st === "approved" ? "Approve" : "Reject", onclick: async () => { try { await call(`/understanding/${x.id}`, { method: "POST", body: fd({ status: st }) }); loadSuggestions(); } catch (e) { toast(e.message, true); } } })))))
+      : [el("tr", {}, el("td", { colspan: 5, cls: "muted", text: "No suggestions yet." }))]));
+  } catch (e) { toast(e.message, true); }
+}
+
+async function loadTraining() {
+  try { const [j, ds] = await Promise.all([call("/jobs"), call("/datasets")]);
+    $("rdOut").replaceChildren(el("p", {}, el("span", { cls: "pill " + (j.readiness.ready ? "ok" : "bad"), text: j.readiness.ready ? "Ready" : "Blocked" })),
+      ...j.readiness.checks.map(c => el("div", { cls: "note" + (c.ok ? "" : " err"), style: c.ok ? "border-left-color:var(--ok);background:rgba(53,224,138,.07)" : "", text: (c.ok ? "✓ " : "✗ ") + c.detail })));
+    $("jobDs").replaceChildren(...(ds.length ? ds.map(d => el("option", { value: d.id, text: `${d.id} (${d.stage})` })) : [el("option", { value: "", text: "no datasets" })]));
+    $("jobBody").replaceChildren(...(j.jobs.length ? j.jobs.map(x => el("tr", {}, el("td", { text: x.id }), el("td", { text: x.dataset }), el("td", {}, pill(x.status)), el("td", { text: x.detail }),
+      el("td", {}, el("button", { cls: "ghost", text: "Log", onclick: async () => { const l = await call(`/jobs/${x.id}/log`); $("jobLog").textContent = l.log || "(no log yet)"; } }), " ",
+        ["queued", "running", "paused"].includes(x.status) ? el("button", { cls: "ghost", text: "Cancel", onclick: async () => { await call(`/jobs/${x.id}/cancel`, { method: "POST" }); loadTraining(); } }) : "")))
+      : [el("tr", {}, el("td", { colspan: 5, cls: "muted", text: "No training jobs. None has ever run." }))]));
+  } catch (e) { toast(e.message, true); }
+}
+$("licGo").onclick = async () => { try { const r = await call("/licence", { method: "POST", body: fd({ status: $("licSt").value, note: $("licNote").value, confirm: $("licConf").value }) }); toast("Recorded: " + r.licence); loadTraining(); } catch (e) { toast(e.message, true); } };
+$("jobGo").onclick = async () => { if (!$("jobDs").value) return toast("Import and validate a dataset first", true);
+  try { const r = await call("/jobs", { method: "POST", body: fd({ dataset_id: $("jobDs").value, steps: $("jobSteps").value }) }); toast(`${r.id}: ${r.status}${r.status === "blocked" ? " — " + r.detail : ""}`, r.status === "blocked"); loadTraining(); } catch (e) { toast(e.message, true); } };
+
+async function loadModels() {
+  try { const m = await call("/models");
+    $("mdBody").replaceChildren(...m.models.map(x => el("tr", {}, el("td", { text: x.name }), el("td", {}, pill(x.status)), el("td", { text: `${x.evaluation} pictures` }),
+      el("td", {}, x.id === "baseline" ? "" : el("button", { cls: "ghost", text: "Evaluate", onclick: async () => { try { const r = await call(`/models/${x.id}/validate`, { method: "POST" }); toast(`${x.id}: ${r.status}${r.evaluation.reason ? " — " + r.evaluation.reason : ""}`); loadModels(); } catch (e) { toast(e.message, true); } } }), " ",
+        x.status === "validated" ? el("button", { cls: "ghost", text: "Make active", onclick: async () => { const c = prompt("Type PROMOTE to use this model for every render"); if (!c) return; try { await call(`/models/${x.id}/promote`, { method: "POST", body: fd({ confirm: c, strength: 0.8 }) }); loadModels(); } catch (e) { toast(e.message, true); } } }) : ""))));
+    const s = await call("/evaluate/baseline"); showEval(s);
+  } catch (e) { toast(e.message, true); }
+}
+function showEval(s) {
+  const rows = Object.entries(s.per_sample).slice(-40).reverse();
+  $("evBody").replaceChildren(...rows.map(([k, v]) => el("tr", {}, el("td", { text: k.replace("render:", "") }), el("td", { text: Math.round(v.structure_kept * 100) + "%" }), el("td", { text: Math.round(v.invented_lines * 100) + "%" }), el("td", { text: v.colour_shift }))));
+  $("evMean").textContent = s.samples ? `Current engine, ${s.samples} renders: structure kept ${Math.round(s.mean.structure_kept * 100)}%, invented lines ${Math.round(s.mean.invented_lines * 100)}%, colour shift ${s.mean.colour_shift}` : "Nothing measured yet.";
+}
+$("rbGo").onclick = async () => { if (!confirm("Go back to the baseline engine for every render?")) return; try { await call("/models/rollback", { method: "POST" }); toast("Baseline engine active"); loadModels(); } catch (e) { toast(e.message, true); } };
+$("evGo").onclick = async () => { $("evGo").disabled = true;
+  try { const ids = await call("/evaluate/renders"); let n = 0;
+    for (const id of ids) { $("evNote").textContent = `measuring ${++n} of ${ids.length}…`; try { await call(`/evaluate/render/${id}`, { method: "POST" }); } catch (_) {} }
+    $("evNote").textContent = ""; showEval(await call("/evaluate/baseline"));
+  } catch (e) { toast(e.message, true); } finally { $("evGo").disabled = false; } };
 loadOverview();
 </script>
 </body>
