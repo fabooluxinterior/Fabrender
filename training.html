@@ -125,13 +125,19 @@ th{color:var(--muted);font-weight:500}
 
   <section id="train">
     <div class="card"><h2>Can training start?</h2><div id="rdOut"></div></div>
+    <div class="card"><h2>Build a training set from approved renders</h2>
+      <p class="muted">Tick only renders you would hand to a client — each becomes one lesson: <b>design upload → this render</b>. Wrong or weak renders teach the wrong thing. 30+ needed.</p>
+      <div class="row"><input id="pkName" value="approved_renders" placeholder="Dataset name"><button class="ghost" id="pkLoad">Show renders</button>
+        <span class="muted" id="pkCount"></span><button class="btn" id="pkGo">Add ticked renders</button></div>
+      <div id="pkGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px"></div>
+      <div class="row" style="margin-top:8px"><button class="ghost" id="pkMore" style="display:none">Show more</button></div></div>
     <div class="card"><h2>Licence decision</h2>
       <p class="muted">FLUX.1 Kontext [dev] is licensed for non-commercial use. Training for client work needs Faboolux's own decision (e.g. a commercial licence from Black Forest Labs). Record it here only once it is settled.</p>
       <div class="row"><select id="licSt"><option value="pending">Pending</option><option value="commercial_licence_obtained">Commercial licence obtained</option><option value="non_commercial_research_only">Non-commercial research only</option></select>
         <input id="licNote" placeholder="Note (licence ref, date)" style="flex:1"><input id="licConf" placeholder="Type I CONFIRM"><button class="btn" id="licGo">Record</button></div></div>
     <div class="card"><h2>Training jobs</h2>
-      <div class="row"><select id="jobDs"></select><input id="jobSteps" type="number" value="2000" min="100" max="10000" style="width:110px"><button class="btn" id="jobGo">Queue training</button>
-        <span class="muted">A job only runs when every check above is green, and pauses whenever a render needs the GPU.</span></div>
+      <div class="row"><select id="jobDs"></select><input id="jobSteps" type="number" value="1500" min="100" max="10000" style="width:110px"><button class="btn" id="jobGo">Queue training</button>
+        <span class="muted">A job only runs when every check above is green, only at night (8 pm – 8 am), and stops at once whenever a render needs the GPU.</span></div>
       <table><thead><tr><th>Job</th><th>Dataset</th><th>Status</th><th>Detail</th><th></th></tr></thead><tbody id="jobBody"></tbody></table>
       <pre id="jobLog" class="muted" style="white-space:pre-wrap;max-height:240px;overflow:auto"></pre></div>
   </section>
@@ -322,6 +328,29 @@ $("evGo").onclick = async () => { $("evGo").disabled = true;
     for (const id of ids) { $("evNote").textContent = `measuring ${++n} of ${ids.length}…`; try { await call(`/evaluate/render/${id}`, { method: "POST" }); } catch (_) {} }
     $("evNote").textContent = ""; showEval(await call("/evaluate/baseline"));
   } catch (e) { toast(e.message, true); } finally { $("evGo").disabled = false; } };
+let pkShown = 0, pkAll = [];
+const picked = new Set();
+async function thumbInto(img, id, which) { try { const t = await fetch(`${API}/renders/${id}/thumb?which=${which}`, { headers: code ? { "X-API-Key": code } : {} }); if (t.ok) img.src = URL.createObjectURL(await t.blob()); } catch (_) {} }
+function pkCount() { $("pkCount").textContent = `${picked.size} ticked`; }
+async function pkPage() {
+  const next = pkAll.slice(pkShown, pkShown + 24); pkShown += next.length;
+  for (const id of next) {
+    const d = el("img", { cls: "thumb", style: "max-width:100%;margin:0" }), r = el("img", { cls: "thumb", style: "max-width:100%;margin:0" });
+    const cb = el("input", { type: "checkbox" }); cb.onchange = () => { cb.checked ? picked.add(id) : picked.delete(id); pkCount(); };
+    $("pkGrid").append(el("label", { cls: "stage", style: "cursor:pointer;display:block" }, el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:4px" }, d, r),
+      el("div", { cls: "row", style: "margin:6px 0 0" }, cb, el("span", { cls: "muted", text: "design → render · " + id.slice(0, 8) }))));
+    thumbInto(d, id, "design"); thumbInto(r, id, "render");
+  }
+  $("pkMore").style.display = pkShown < pkAll.length ? "" : "none";
+}
+$("pkLoad").onclick = async () => { try { pkAll = await call("/evaluate/renders?limit=400"); pkShown = 0; $("pkGrid").replaceChildren(); picked.clear(); pkCount(); await pkPage(); toast(`${pkAll.length} saved renders`); } catch (e) { toast(e.message, true); } };
+$("pkMore").onclick = pkPage;
+$("pkGo").onclick = async () => { if (!picked.size) return toast("Tick the approved renders first", true);
+  $("pkGo").disabled = true;
+  try { const r = await call("/datasets/from-renders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job_ids: [...picked], dataset_id: $("pkName").value.trim() }) });
+    const v = await call("/datasets/validate", { method: "POST", body: fd({ dataset_id: r.dataset_id }) });
+    toast(`${r.added} added to ${r.dataset_id} · ${v.ok} of ${v.samples} valid · stage ${v.stage}`); loadTraining();
+  } catch (e) { toast(e.message, true); } finally { $("pkGo").disabled = false; } };
 loadOverview();
 </script>
 </body>
