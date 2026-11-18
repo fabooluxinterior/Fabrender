@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fabrender · Training & AI Knowledge</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0:#050403; --bg1:#17110e; --glass:rgba(255,255,255,.055); --glass-2:rgba(255,255,255,.095);
+  --line:rgba(255,255,255,.11); --line-2:rgba(255,255,255,.22);
+  --text:#f4efe9; --muted:#a99f95; --faint:#6f665e; --accent:#e3b98a; --accent-ink:#1d1510;
+  --ok:#35e08a; --bad:#ff5d5d; --warn:#f5b84b; --radius:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--text);background:radial-gradient(1200px 700px at 20% -10%,#3a2a20 0,transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg0));
+  font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.45}
+header{display:flex;align-items:center;gap:14px;padding:18px 28px;border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0;font-weight:600}
+header a{color:var(--muted);text-decoration:none;font-size:13px;margin-left:auto}
+header a:hover{color:var(--text)}
+nav{display:flex;gap:6px;padding:14px 28px 0;flex-wrap:wrap}
+nav button{background:none;border:1px solid transparent;color:var(--muted);padding:8px 14px;border-radius:999px;font:inherit;cursor:pointer}
+nav button.on{background:var(--glass-2);border-color:var(--line-2);color:var(--text)}
+main{padding:20px 28px 60px;max-width:1200px}
+section{display:none}
+section.on{display:block}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 12px;font-weight:600}
+.muted{color:var(--muted);font-size:13px}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stage{border:1px solid var(--line);border-radius:12px;padding:12px}
+.stage b{display:block;font-size:24px;font-weight:600}
+.stage span{color:var(--muted);font-size:12px}
+.stage.blocked{border-color:rgba(245,184,75,.45)}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:rgba(245,184,75,.07);border-radius:6px;font-size:13px}
+.err{border-left-color:var(--bad);background:rgba(255,93,93,.08)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+input,select,textarea{background:rgba(0,0,0,.35);border:1px solid var(--line-2);color:var(--text);border-radius:10px;padding:8px 10px;font:inherit}
+textarea{width:100%;min-height:60px}
+button.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.ghost{background:var(--glass-2);color:var(--text);border:1px solid var(--line-2);border-radius:10px;padding:7px 12px;font:inherit;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line-2)}
+.pill.ok{color:var(--ok);border-color:rgba(53,224,138,.4)}
+.pill.bad{color:var(--bad);border-color:rgba(255,93,93,.4)}
+.pill.warn{color:var(--warn);border-color:rgba(245,184,75,.4)}
+.thumb{max-width:220px;border-radius:10px;border:1px solid var(--line);display:block;margin-top:8px}
+#toast{position:fixed;bottom:20px;right:20px;background:#211913;border:1px solid var(--line-2);padding:10px 14px;border-radius:12px;display:none;max-width:420px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Training &amp; AI Knowledge</h1>
+  <span class="muted" id="who"></span>
+  <a href="./">← Back to the studio</a>
+</header>
+<nav id="tabs">
+  <button data-t="overview" class="on">Overview</button>
+  <button data-t="datasets">Datasets</button>
+  <button data-t="library">Library</button>
+  <button data-t="images">Images</button>
+  <button data-t="review">Review queue</button>
+</nav>
+<main>
+  <div id="denied" class="card" style="display:none">
+    <h2>Access</h2>
+    <p class="muted">The training section holds client pictures, so it opens only on the office network or with an access code.</p>
+    <div class="row"><input id="code" type="password" placeholder="Access code"><button class="btn" id="codeGo">Open</button></div>
+  </div>
+
+  <section id="overview" class="on">
+    <div class="card"><h2>Where things stand</h2><div class="board" id="board"></div></div>
+    <div class="card"><h2>Training</h2><div id="trainNote" class="note"></div>
+      <p class="muted">Models: <span id="models"></span></p></div>
+  </section>
+
+  <section id="datasets">
+    <div class="card"><h2>Import the training workbook</h2>
+      <p class="muted">Faboolux_AI_Interior_Training_Dataset_Template.xlsx, or one sheet as .csv. Every row arrives as <b>unreviewed</b> — template rows are examples, not truth.</p>
+      <div class="row"><input type="file" id="wb" accept=".xlsx,.csv"><button class="btn" id="wbGo">Import</button></div>
+      <div id="wbOut" class="muted"></div></div>
+    <div class="card"><h2>Datasets</h2><table><thead><tr><th>Dataset</th><th>Source</th><th>Samples</th><th>Stage</th><th></th></tr></thead><tbody id="dsBody"></tbody></table></div>
+    <div class="card" id="repCard" style="display:none"><h2 id="repTitle">Report</h2><div id="repSum"></div>
+      <table><thead><tr><th>Sample</th><th>Type</th><th>Project</th><th>Split</th><th>Status</th><th>Issues</th></tr></thead><tbody id="repBody"></tbody></table></div>
+  </section>
+
+  <section id="library">
+    <div class="card"><h2>Interior knowledge library</h2>
+      <div class="row"><select id="libKind"><option value="object">Objects</option><option value="material">Materials</option><option value="style">Design styles</option><option value="caption">Caption templates</option><option value="guide">Annotation guide</option></select>
+        <input id="libQ" placeholder="Search name or synonym"><button class="ghost" id="libGo">Search</button></div>
+      <table><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Synonyms</th><th>Status</th><th></th></tr></thead><tbody id="libBody"></tbody></table></div>
+    <div class="card"><h2 id="formTitle">Add an item</h2>
+      <div class="row"><select id="fKind"><option value="object">Object</option><option value="material">Material</option><option value="style">Design style</option></select>
+        <input id="fId" placeholder="ID (blank = from name)"><input id="fName" placeholder="Canonical name"><input id="fCat" placeholder="Category"></div>
+      <div class="row"><input id="fSyn" placeholder="Synonyms, comma separated" style="flex:1"></div>
+      <textarea id="fAttrs" placeholder='Attributes as JSON, e.g. {"visible_parts":["sliding panels"],"finish":"matte"}'></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" id="fSave">Save</button><span class="muted">No retraining needed — the library is used directly.</span></div></div>
+  </section>
+
+  <section id="images">
+    <div class="card"><h2>Add images</h2>
+      <p class="muted">Originals are stored unchanged; the server picks the file name. Duplicates are recognised by content.</p>
+      <div class="row"><select id="imRole"><option value="inputs">Input (raw 3D view / sketch)</option><option value="targets">Target (approved render)</option><option value="references">Reference</option><option value="masks">Mask</option></select>
+        <input id="imProj" placeholder="Project ID (keeps views together)"><input type="file" id="imFile" accept="image/png,image/jpeg,image/webp" multiple><button class="btn" id="imGo">Upload</button></div>
+      <div id="imOut"></div></div>
+  </section>
+
+  <section id="review">
+    <div class="card"><h2>Review queue</h2><p class="muted">Problems found by validation. Approve, mark fixed, or reject each one.</p>
+      <table><thead><tr><th>#</th><th>Item</th><th>Reason</th><th></th></tr></thead><tbody id="revBody"></tbody></table></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const API = "https://render.everpick.co.in/api/training";
+const CODE_KEY = "fabrender-access-code";
+let code = ""; try { code = localStorage.getItem(CODE_KEY) || ""; } catch (_) {}
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "text") e.textContent = v; else if (k === "cls") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); } kids.flat().forEach(k => k != null && e.append(k.nodeType ? k : document.createTextNode(String(k)))); return e; };
+function toast(msg, bad) { const t = $("toast"); t.textContent = msg; t.style.borderColor = bad ? "var(--bad)" : "var(--line-2)"; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 5000); }
+async function call(path, opts = {}) {
+  const r = await fetch(API + path, { ...opts, headers: { ...(opts.headers || {}), ...(code ? { "X-API-Key": code } : {}) }, cache: "no-store" });
+  let body = null; try { body = await r.json(); } catch (_) {}
+  if (r.status === 403 || r.status === 401) { $("denied").style.display = "block"; throw new Error((body && body.detail) || "Access denied"); }
+  if (!r.ok) throw new Error((body && body.detail) || `Error ${r.status}`);
+  return body;
+}
+const pill = (s) => el("span", { cls: "pill " + ({ validated: "ok", reviewed: "ok", engine: "ok", collected: "warn", unreviewed: "warn", needs_review: "bad" }[s] || ""), text: s });
+
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("main section").forEach(s => s.classList.toggle("on", s.id === b.dataset.t));
+  ({ overview: loadOverview, datasets: loadDatasets, library: loadLibrary, review: loadReview })[b.dataset.t]?.();
+});
+$("codeGo").onclick = () => { code = $("code").value.trim(); try { localStorage.setItem(CODE_KEY, code); } catch (_) {} $("denied").style.display = "none"; loadOverview(); };
+
+async function loadOverview() {
+  try {
+    const s = await call("/summary");
+    $("denied").style.display = "none";
+    const stages = [["Data collected", s.data_collected], ["Data validated", s.data_validated], ["Needs review", s.needs_review],
+      ["Training queued", s.training_queued, 1], ["Training running", s.training_running, 1], ["Training completed", s.training_completed, 1],
+      ["Model validated", s.model_validated, 1], ["Images stored", s.images], ["Library objects", s.library.object], ["Library materials", s.library.material]];
+    $("board").replaceChildren(...stages.map(([n, v, blk]) => el("div", { cls: "stage" + (blk ? " blocked" : "") }, el("b", { text: v }), el("span", { text: n }))));
+    $("trainNote").textContent = "Status: " + s.training_status + ". Active model: " + s.model_active + ".";
+    const m = await call("/models");
+    $("models").textContent = m.models.map(x => `${x.name} — ${x.status}`).join("; ");
+  } catch (e) { toast(e.message, true); }
+}
+
+async function loadDatasets() {
+  try {
+    const ds = await call("/datasets");
+    $("dsBody").replaceChildren(...(ds.length ? ds.map(d => el("tr", {}, el("td", { text: d.id }), el("td", { text: d.source }), el("td", { text: d.samples }), el("td", {}, pill(d.stage)),
+      el("td", {}, el("button", { cls: "ghost", text: "Validate", onclick: () => validate(d.id) }), " ", el("button", { cls: "ghost", text: "Report", onclick: () => showReport(d.id) })))) :
+      [el("tr", {}, el("td", { colspan: 5, cls: "muted", text: "No datasets yet — import the workbook above." }))]));
+  } catch (e) { toast(e.message, true); }
+}
+$("wbGo").onclick = async () => {
+  const f = $("wb").files[0]; if (!f) return toast("Choose the workbook first", true);
+  const fd = new FormData(); fd.append("file", f, f.name);
+  $("wbGo").disabled = true;
+  try { const r = await call("/datasets/import", { method: "POST", body: fd });
+    $("wbOut").textContent = `Imported ${r.dataset_id}: ` + Object.entries(r.rows).map(([k, v]) => `${k} ${v}`).join(", ") + (r.unknown_sheets.length ? ` · not recognised: ${r.unknown_sheets.join(", ")}` : "");
+    loadDatasets(); } catch (e) { toast(e.message, true); } finally { $("wbGo").disabled = false; }
+};
+async function validate(id) {
+  try { const fd = new FormData(); fd.append("dataset_id", id);
+    const r = await call("/datasets/validate", { method: "POST", body: fd });
+    toast(`${id}: ${r.ok} of ${r.samples} samples valid · stage ${r.stage}`); loadDatasets(); showReport(id);
+  } catch (e) { toast(e.message, true); }
+}
+async function showReport(id) {
+  try { const d = await call(`/datasets/${encodeURIComponent(id)}/report`);
+    $("repCard").style.display = "block"; $("repTitle").textContent = `Report · ${id}`;
+    const rep = d.report || {};
+    $("repSum").replaceChildren(el("p", { cls: "muted", text: rep.samples ? `${rep.ok} of ${rep.samples} valid · version ${rep.version_hash} · checked ${rep.checked}` : "Not validated yet." }),
+      ...Object.entries(rep.issues || {}).map(([k, v]) => el("div", { cls: "note err", text: `${v} × ${k}` })),
+      ...Object.entries(rep.warnings || {}).map(([k, v]) => el("div", { cls: "note", text: `${v} × ${k}` })));
+    $("repBody").replaceChildren(...d.samples.map(s => el("tr", {}, el("td", { text: s.id }), el("td", { text: s.example_type }), el("td", { text: s.project_id }), el("td", { text: s.split || "—" }), el("td", {}, pill(s.status)), el("td", { text: (s.issues || []).join(" · ") }))));
+  } catch (e) { toast(e.message, true); }
+}
+
+async function loadLibrary() {
+  try { const items = await call(`/library/${$("libKind").value}?q=${encodeURIComponent($("libQ").value.trim())}&limit=400`);
+    $("libBody").replaceChildren(...items.map(i => el("tr", {}, el("td", { text: i.id }), el("td", { text: i.name }), el("td", { text: i.category }), el("td", { text: (i.synonyms || []).join(", ") }), el("td", {}, pill(i.status)),
+      el("td", {}, ["object", "material", "style"].includes(i.kind) ? el("button", { cls: "ghost", text: "Edit", onclick: () => editItem(i) }) : ""))));
+  } catch (e) { toast(e.message, true); }
+}
+$("libGo").onclick = loadLibrary; $("libKind").onchange = loadLibrary;
+function editItem(i) { $("formTitle").textContent = "Edit " + i.id; $("fKind").value = i.kind; $("fId").value = i.id; $("fName").value = i.name; $("fCat").value = i.category || ""; $("fSyn").value = (i.synonyms || []).join(", "); $("fAttrs").value = JSON.stringify(i.attrs || {}, null, 1); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }
+$("fSave").onclick = async () => {
+  let attrs = {}; try { attrs = $("fAttrs").value.trim() ? JSON.parse($("fAttrs").value) : {}; } catch (_) { return toast("Attributes must be valid JSON", true); }
+  const item = { id: $("fId").value.trim() || undefined, name: $("fName").value.trim(), category: $("fCat").value.trim(), synonyms: $("fSyn").value.split(",").map(s => s.trim()).filter(Boolean), attrs, status: "reviewed" };
+  try { const r = await call(`/library/${$("fKind").value}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) });
+    toast("Saved " + r.id); $("formTitle").textContent = "Add an item"; ["fId", "fName", "fCat", "fSyn", "fAttrs"].forEach(k => $(k).value = ""); $("libKind").value = $("fKind").value; loadLibrary();
+  } catch (e) { toast(e.message, true); }
+};
+
+$("imGo").onclick = async () => {
+  const files = [...$("imFile").files]; if (!files.length) return toast("Choose images first", true);
+  $("imGo").disabled = true; const out = $("imOut"); out.replaceChildren();
+  for (const f of files) {
+    const fd = new FormData(); fd.append("file", f, f.name); fd.append("role", $("imRole").value); fd.append("project_id", $("imProj").value.trim());
+    try { const r = await call("/images", { method: "POST", body: fd });
+      const img = el("img", { cls: "thumb", alt: f.name }); out.append(el("div", { cls: "muted" }, `${f.name} → ${r.rel_path}${r.duplicate ? " (already stored)" : ` · ${r.width}×${r.height}`}`, img));
+      try { const t = await fetch(`${API}/images/${r.id}/thumb`, { headers: code ? { "X-API-Key": code } : {} }); if (t.ok) img.src = URL.createObjectURL(await t.blob()); } catch (_) {}
+    } catch (e) { out.append(el("div", { cls: "note err", text: `${f.name}: ${e.message}` })); }
+  }
+  $("imGo").disabled = false;
+};
+
+async function loadReview() {
+  try { const q = await call("/review");
+    $("revBody").replaceChildren(...(q.length ? q.map(r => el("tr", {}, el("td", { text: r.id }), el("td", { text: `${r.ref_kind} ${r.ref_id}` }), el("td", { text: r.reason }),
+      el("td", {}, ...["approved", "fixed", "rejected"].map(a => el("button", { cls: "ghost", text: a, onclick: async () => { const fd = new FormData(); fd.append("action", a); try { await call(`/review/${r.id}`, { method: "POST", body: fd }); loadReview(); } catch (e) { toast(e.message, true); } } })))))
+      : [el("tr", {}, el("td", { colspan: 4, cls: "muted", text: "Nothing waiting for review." }))]));
+  } catch (e) { toast(e.message, true); }
+}
+loadOverview();
+</script>
+</body>
+</html>
