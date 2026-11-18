@@ -314,7 +314,11 @@ async function loadTraining() {
 }
 $("licGo").onclick = async () => { try { const r = await call("/licence", { method: "POST", body: fd({ status: $("licSt").value, note: $("licNote").value, confirm: $("licConf").value }) }); toast("Recorded: " + r.licence); loadTraining(); } catch (e) { toast(e.message, true); } };
 $("jobGo").onclick = async () => { if (!$("jobDs").value) return toast("Import and validate a dataset first", true);
-  try { const r = await call("/jobs", { method: "POST", body: fd({ dataset_id: $("jobDs").value, steps: $("jobSteps").value, test: $("jobTest").checked }) }); toast(`${r.id}: ${r.status}${r.status === "blocked" ? " — " + r.detail : ""}`, r.status === "blocked"); loadTraining(); } catch (e) { toast(e.message, true); } };
+  const b = $("jobGo"); b.disabled = true; b.textContent = "Queuing…";
+  try { const r = await call("/jobs", { method: "POST", body: fd({ dataset_id: $("jobDs").value, steps: $("jobSteps").value, test: $("jobTest").checked }) });
+    const msg = r.status === "already queued" ? `Already queued (${r.id}) - nothing added` : r.status === "blocked" ? `Blocked - ${r.detail}` : `Queued ${r.id} - starts after 8 pm when nobody is rendering`;
+    toast(msg, r.status === "blocked"); await loadTraining(); $("jobBody").scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) { toast(e.message, true); } finally { b.disabled = false; b.textContent = "Queue training"; } };
 
 async function loadModels() {
   try { const m = await call("/models");
