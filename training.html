@@ -125,6 +125,13 @@ th{color:var(--muted);font-weight:500}
 
   <section id="train">
     <div class="card"><h2>Can training start?</h2><div id="rdOut"></div></div>
+    <div class="card"><h2>Add past projects (best training data)</h2>
+      <p class="muted">For each view: the plain <b>3D view</b> (SketchUp / 3ds Max viewport or export) and the <b>final client-approved render</b> of the same camera (V-Ray, Corona, D5, Lumion…). Give each pair the <b>same file name</b> — e.g. <i>kitchen_01.jpg</i> in both — and they are matched automatically. 30+ pairs needed.</p>
+      <div class="row"><label class="muted">3D views <input type="file" id="prViews" accept="image/png,image/jpeg,image/webp" multiple></label>
+        <label class="muted">Final renders <input type="file" id="prFinals" accept="image/png,image/jpeg,image/webp" multiple></label></div>
+      <div class="row"><input id="prName" value="project_pairs" placeholder="Dataset name"><select id="prRoom"><option value="">Room (optional)</option><option>kitchen</option><option>bedroom</option><option>living room</option><option>dining</option><option>bathroom</option><option>study</option><option>foyer</option><option>pooja</option></select>
+        <button class="btn" id="prGo">Upload pairs</button><span class="muted" id="prNote"></span></div>
+      <div id="prOut" class="muted"></div></div>
     <div class="card"><h2>Build a training set from approved renders</h2>
       <p class="muted">Tick only renders you would hand to a client — each becomes one lesson: <b>design upload → this render</b>. Wrong or weak renders teach the wrong thing. 30+ needed.</p>
       <div class="row"><input id="pkName" value="approved_renders" placeholder="Dataset name"><button class="ghost" id="pkLoad">Show renders</button>
@@ -351,6 +358,26 @@ $("pkGo").onclick = async () => { if (!picked.size) return toast("Tick the appro
     const v = await call("/datasets/validate", { method: "POST", body: fd({ dataset_id: r.dataset_id }) });
     toast(`${r.added} added to ${r.dataset_id} · ${v.ok} of ${v.samples} valid · stage ${v.stage}`); loadTraining();
   } catch (e) { toast(e.message, true); } finally { $("pkGo").disabled = false; } };
+const stem = (n) => n.toLowerCase().replace(/\.[^.]+$/, "").replace(/[\s_-]*(view|3d|final|render|out|in)$/,"").trim();
+$("prGo").onclick = async () => {
+  const views = [...$("prViews").files], finals = [...$("prFinals").files];
+  if (!views.length || !finals.length) return toast("Choose the 3D views and the final renders", true);
+  const fm = new Map(finals.map(f => [stem(f.name), f]));
+  const pairs = views.map(v => [v, fm.get(stem(v.name))]).filter(p => p[1]);
+  const lost = views.filter(v => !fm.has(stem(v.name))).map(v => v.name);
+  if (!pairs.length) return toast("No names match - give each 3D view and its final render the same file name", true);
+  $("prGo").disabled = true; let ok = 0, ds = "";
+  for (const [v, f] of pairs) {
+    $("prNote").textContent = `uploading ${ok + 1} of ${pairs.length}…`;
+    try { const r = await call("/datasets/pair", { method: "POST", body: fd({ view: v, final: f, dataset_id: $("prName").value.trim() || "project_pairs", room: $("prRoom").value }) }); ok++; ds = r.dataset_id; }
+    catch (e) { lost.push(`${v.name}: ${e.message}`); }
+  }
+  $("prNote").textContent = "";
+  let msg = `${ok} pairs added.`;
+  if (ds) { try { const vr = await call("/datasets/validate", { method: "POST", body: fd({ dataset_id: ds }) }); msg += ` Dataset ${ds}: ${vr.ok} of ${vr.samples} valid · stage ${vr.stage}.`; } catch (_) {} }
+  $("prOut").replaceChildren(el("p", { text: msg }), ...(lost.length ? [el("div", { cls: "note", text: "Not matched / skipped: " + lost.join(", ") })] : []));
+  $("prGo").disabled = false; loadTraining();
+};
 loadOverview();
 </script>
 </body>
