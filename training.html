@@ -143,7 +143,7 @@ th{color:var(--muted);font-weight:500}
       <div class="row"><select id="licSt"><option value="pending">Pending</option><option value="commercial_licence_obtained">Commercial licence obtained</option><option value="non_commercial_research_only">Non-commercial research only</option></select>
         <input id="licNote" placeholder="Note (licence ref, date)" style="flex:1"><input id="licConf" placeholder="Type I CONFIRM"><button class="btn" id="licGo">Record</button></div></div>
     <div class="card"><h2>Training jobs</h2>
-      <div class="row"><select id="jobDs"></select><input id="jobSteps" type="number" value="1500" min="100" max="10000" style="width:110px"><button class="btn" id="jobGo">Queue training</button>
+      <div class="row"><select id="jobDs"></select><input id="jobSteps" type="number" value="1500" min="100" max="10000" style="width:110px"><label class="muted"><input type="checkbox" id="jobTest"> Test run (10+ pairs, 300 steps, never used for renders)</label><button class="btn" id="jobGo">Queue training</button>
         <span class="muted">A job only runs when every check above is green, only at night (8 pm – 8 am), and stops at once whenever a render needs the GPU.</span></div>
       <table><thead><tr><th>Job</th><th>Dataset</th><th>Status</th><th>Detail</th><th></th></tr></thead><tbody id="jobBody"></tbody></table>
       <pre id="jobLog" class="muted" style="white-space:pre-wrap;max-height:240px;overflow:auto"></pre></div>
@@ -162,7 +162,7 @@ th{color:var(--muted);font-weight:500}
   </section>
 
   <section id="review">
-    <div class="card"><h2>Review queue</h2><p class="muted">Problems found by validation. Approve, mark fixed, or reject each one.</p>
+    <div class="card"><h2>Review queue</h2><p class="muted">Problems found by validation. <b>approved</b> = keep this pair anyway · <b>rejected</b> = leave it out of training. The dataset is re-checked after each choice.</p>
       <table><thead><tr><th>#</th><th>Item</th><th>Reason</th><th></th></tr></thead><tbody id="revBody"></tbody></table></div>
   </section>
 </main>
@@ -270,7 +270,7 @@ $("imGo").onclick = async () => {
 async function loadReview() {
   try { const q = await call("/review");
     $("revBody").replaceChildren(...(q.length ? q.map(r => el("tr", {}, el("td", { text: r.id }), el("td", { text: `${r.ref_kind} ${r.ref_id}` }), el("td", { text: r.reason }),
-      el("td", {}, ...["approved", "fixed", "rejected"].map(a => el("button", { cls: "ghost", text: a, onclick: async () => { const fd = new FormData(); fd.append("action", a); try { await call(`/review/${r.id}`, { method: "POST", body: fd }); loadReview(); } catch (e) { toast(e.message, true); } } })))))
+      el("td", {}, ...["approved", "fixed", "rejected"].map(a => el("button", { cls: "ghost", text: a, onclick: async () => { const fd = new FormData(); fd.append("action", a); try { await call(`/review/${r.id}`, { method: "POST", body: fd }); if (r.ref_kind === "sample" && r.ref_id.includes(":")) { const f2 = new FormData(); f2.append("dataset_id", r.ref_id.split(":")[0]); await call("/datasets/validate", { method: "POST", body: f2 }).catch(() => {}); } loadReview(); } catch (e) { toast(e.message, true); } } })))))
       : [el("tr", {}, el("td", { colspan: 4, cls: "muted", text: "Nothing waiting for review." }))]));
   } catch (e) { toast(e.message, true); }
 }
@@ -314,7 +314,7 @@ async function loadTraining() {
 }
 $("licGo").onclick = async () => { try { const r = await call("/licence", { method: "POST", body: fd({ status: $("licSt").value, note: $("licNote").value, confirm: $("licConf").value }) }); toast("Recorded: " + r.licence); loadTraining(); } catch (e) { toast(e.message, true); } };
 $("jobGo").onclick = async () => { if (!$("jobDs").value) return toast("Import and validate a dataset first", true);
-  try { const r = await call("/jobs", { method: "POST", body: fd({ dataset_id: $("jobDs").value, steps: $("jobSteps").value }) }); toast(`${r.id}: ${r.status}${r.status === "blocked" ? " — " + r.detail : ""}`, r.status === "blocked"); loadTraining(); } catch (e) { toast(e.message, true); } };
+  try { const r = await call("/jobs", { method: "POST", body: fd({ dataset_id: $("jobDs").value, steps: $("jobSteps").value, test: $("jobTest").checked }) }); toast(`${r.id}: ${r.status}${r.status === "blocked" ? " — " + r.detail : ""}`, r.status === "blocked"); loadTraining(); } catch (e) { toast(e.message, true); } };
 
 async function loadModels() {
   try { const m = await call("/models");
