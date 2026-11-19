@@ -154,6 +154,13 @@ th{color:var(--muted);font-weight:500}
       <p class="muted">candidate → validated (measured against the current engine on the same pictures) → active (promoted by a person). Roll back at any time.</p>
       <table><thead><tr><th>Model</th><th>Status</th><th>Measured on</th><th></th></tr></thead><tbody id="mdBody"></tbody></table>
       <div class="row" style="margin-top:10px"><button class="ghost" id="rbGo">Roll back to the baseline engine</button></div></div>
+    <div class="card"><h2>Try a model side by side</h2>
+      <p class="muted">Renders one design twice with the same seed — the <b>current engine</b> and the <b>chosen trained model</b> — and measures both. Normal renders are never affected. Add the approved final too, if you have it, to see which is closer.</p>
+      <div class="row"><select id="trModel"></select><label class="muted">Design <input type="file" id="trDesign" accept="image/png,image/jpeg,image/webp"></label>
+        <label class="muted">Approved final (optional) <input type="file" id="trFinal" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="trGo">Render both</button></div>
+      <p class="muted" id="trNote"></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><b>Current engine</b><img id="trA" class="thumb" style="max-width:100%"><div class="muted" id="trAm"></div></div>
+        <div><b>Trained model</b><img id="trB" class="thumb" style="max-width:100%"><div class="muted" id="trBm"></div></div></div></div>
     <div class="card"><h2>Measure the current engine</h2>
       <p class="muted">Compares each saved design with its render: <b>structure kept</b> (design lines found in the render), <b>invented lines</b> (fluting, grooves or objects the design didn't have) and <b>colour shift</b> (ΔE; ~2 is barely visible). These numbers are the bar a trained model must beat.</p>
       <div class="row"><button class="btn" id="evGo">Measure the latest renders</button><span class="muted" id="evNote"></span></div>
@@ -337,6 +344,9 @@ async function loadModels() {
     $("mdBody").replaceChildren(...m.models.map(x => el("tr", {}, el("td", { text: x.name }), el("td", {}, pill(x.status)), el("td", { text: `${x.evaluation} pictures` }),
       el("td", {}, x.id === "baseline" ? "" : el("button", { cls: "ghost", text: "Evaluate", onclick: async () => { try { const r = await call(`/models/${x.id}/validate`, { method: "POST" }); toast(`${x.id}: ${r.status}${r.evaluation.reason ? " — " + r.evaluation.reason : ""}`); loadModels(); } catch (e) { toast(e.message, true); } } }), " ",
         x.status === "validated" ? el("button", { cls: "ghost", text: "Make active", onclick: async () => { const c = prompt("Type PROMOTE to use this model for every render"); if (!c) return; try { await call(`/models/${x.id}/promote`, { method: "POST", body: fd({ confirm: c, strength: 0.8 }) }); loadModels(); } catch (e) { toast(e.message, true); } } }) : ""))));
+    const prevM = $("trModel").value;
+    $("trModel").replaceChildren(...m.models.filter(x => x.id !== "baseline" && x.status !== "retired").map(x => el("option", { value: x.id, text: `${x.name} (${x.status})` })));
+    if (prevM) $("trModel").value = prevM;
     const s = await call("/evaluate/baseline"); showEval(s);
   } catch (e) { toast(e.message, true); }
 }
@@ -393,6 +403,35 @@ $("prGo").onclick = async () => {
   if (ds) { try { const vr = await call("/datasets/validate", { method: "POST", body: fd({ dataset_id: ds }) }); msg += ` Dataset ${ds}: ${vr.ok} of ${vr.samples} valid · stage ${vr.stage}.`; } catch (_) {} }
   $("prOut").replaceChildren(el("p", { text: msg }), ...(lost.length ? [el("div", { cls: "note", text: "Not matched / skipped: " + lost.join(", ") })] : []));
   $("prGo").disabled = false; loadTraining();
+};
+const RENDER = API.replace("/api/training", "");
+async function renderOnce(file, extra) {
+  const f = new FormData(); f.append("file", file, file.name); f.append("seed", "424242"); f.append("decor", "false");
+  for (const [k, v] of Object.entries(extra)) f.append(k, v);
+  const r = await fetch(RENDER + "/render", { method: "POST", body: f, headers: code ? { "X-API-Key": code } : {} });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `render ${r.status}`);
+  for (;;) { await new Promise(x => setTimeout(x, 4000));
+    const st = await (await fetch(`${RENDER}/render/${j.job_id}`, { headers: code ? { "X-API-Key": code } : {}, cache: "no-store" })).json();
+    $("trNote").textContent = `${extra.trial_model ? "Trained model" : "Current engine"}: ${st.label || st.status} ${st.progress ? Math.round(st.progress) + "%" : ""}`;
+    if (st.status === "done") { const b = await (await fetch(`${RENDER}/render/${j.job_id}/download`, { headers: code ? { "X-API-Key": code } : {} })).blob(); return b; }
+    if (st.status === "error") throw new Error(st.error || "render failed");
+  }
+}
+async function measureInto(id, design, render, final, model, sample) {
+  const f = new FormData(); f.append("design", design); f.append("render", render, "render.png"); if (final) f.append("target", final);
+  f.append("model_id", model); f.append("sample_id", sample);
+  const m = await call("/evaluate", { method: "POST", body: f });
+  $(id).textContent = `structure kept ${Math.round(m.structure_kept * 100)}% · invented lines ${Math.round(m.invented_lines * 100)}% · colour shift ${m.colour_shift}` + (m.target_structure != null ? ` · vs final: structure ${Math.round(m.target_structure * 100)}%, colour shift ${m.target_colour_shift}` : "");
+}
+$("trGo").onclick = async () => {
+  const d = $("trDesign").files[0], fin = $("trFinal").files[0], mid = $("trModel").value;
+  if (!d || !mid) return toast("Choose a trained model and a design", true);
+  $("trGo").disabled = true; $("trA").removeAttribute("src"); $("trB").removeAttribute("src"); $("trAm").textContent = $("trBm").textContent = "";
+  const sample = "trial:" + d.name + ":" + d.size;
+  try { const a = await renderOnce(d, {}); $("trA").src = URL.createObjectURL(a); await measureInto("trAm", d, a, fin, "baseline", sample);
+    const b = await renderOnce(d, { trial_model: mid }); $("trB").src = URL.createObjectURL(b); await measureInto("trBm", d, b, fin, mid, sample);
+    $("trNote").textContent = "Done - compare the two pictures. Each trial is also stored for the model's evaluation."; loadModels();
+  } catch (e) { $("trNote").textContent = ""; toast(e.message, true); } finally { $("trGo").disabled = false; }
 };
 loadOverview();
 </script>
