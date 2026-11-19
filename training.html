@@ -301,11 +301,21 @@ async function loadSuggestions() {
   } catch (e) { toast(e.message, true); }
 }
 
+async function showReadiness() {
+  const ds = $("jobDs").value, test = $("jobTest").checked;
+  try { const rd = await call(`/readiness?dataset_id=${encodeURIComponent(ds || "")}&test=${test}`);
+    $("rdOut").replaceChildren(el("p", {}, el("span", { cls: "pill " + (rd.ready ? "ok" : "bad"), text: rd.ready ? "Ready" : "Blocked" }), " ", el("span", { cls: "muted", text: ds ? `for dataset ${ds}${test ? " (test run)" : ""}` : "" })),
+      ...rd.checks.map(c => el("div", { cls: "note" + (c.ok ? "" : " err"), style: c.ok ? "border-left-color:var(--ok);background:rgba(53,224,138,.07)" : "", text: (c.ok ? "✓ " : "✗ ") + c.detail })));
+  } catch (e) { toast(e.message, true); }
+}
 async function loadTraining() {
   try { const [j, ds] = await Promise.all([call("/jobs"), call("/datasets")]);
-    $("rdOut").replaceChildren(el("p", {}, el("span", { cls: "pill " + (j.readiness.ready ? "ok" : "bad"), text: j.readiness.ready ? "Ready" : "Blocked" })),
-      ...j.readiness.checks.map(c => el("div", { cls: "note" + (c.ok ? "" : " err"), style: c.ok ? "border-left-color:var(--ok);background:rgba(53,224,138,.07)" : "", text: (c.ok ? "✓ " : "✗ ") + c.detail })));
+
+    const prev = $("jobDs").value;
     $("jobDs").replaceChildren(...(ds.length ? ds.map(d => el("option", { value: d.id, text: `${d.id} (${d.stage})` })) : [el("option", { value: "", text: "no datasets" })]));
+    if (prev && ds.some(d => d.id === prev)) $("jobDs").value = prev;
+    else if (ds.some(d => d.id === "project_pairs")) $("jobDs").value = "project_pairs";
+    await showReadiness();
     $("jobBody").replaceChildren(...(j.jobs.length ? j.jobs.map(x => el("tr", {}, el("td", { text: x.id }), el("td", { text: x.dataset }), el("td", {}, pill(x.status)), el("td", { text: x.detail }),
       el("td", {}, el("button", { cls: "ghost", text: "Log", onclick: async () => { const l = await call(`/jobs/${x.id}/log`); $("jobLog").textContent = l.log || "(no log yet)"; } }), " ",
         ["queued", "paused"].includes(x.status) ? el("button", { cls: "ghost", text: "Start now", onclick: async () => { if (!confirm("Start this job now instead of tonight? Any render will pause it, and the PC will be slow while it trains.")) return; try { const r = await call(`/jobs/${x.id}/now`, { method: "POST" }); toast(r.note); loadTraining(); } catch (e) { toast(e.message, true); } } }) : "", " ",
@@ -313,6 +323,7 @@ async function loadTraining() {
       : [el("tr", {}, el("td", { colspan: 5, cls: "muted", text: "No training jobs. None has ever run." }))]));
   } catch (e) { toast(e.message, true); }
 }
+$("jobDs").onchange = showReadiness; $("jobTest").onchange = showReadiness;
 $("licGo").onclick = async () => { try { const r = await call("/licence", { method: "POST", body: fd({ status: $("licSt").value, note: $("licNote").value, confirm: $("licConf").value }) }); toast("Recorded: " + r.licence); loadTraining(); } catch (e) { toast(e.message, true); } };
 $("jobGo").onclick = async () => { if (!$("jobDs").value) return toast("Import and validate a dataset first", true);
   const b = $("jobGo"); b.disabled = true; b.textContent = "Queuing…";
